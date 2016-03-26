@@ -173,9 +173,34 @@ def getClassificationOnDataset(dataset,network):
 def trainGenderClassification(learningRate,hiddenNeurons,bias,maxIterations,femaleDataDir,
 							maleDataDir,signalLength,signalCount,resultsFolder):
 
+	"""
+		Prepating Training and Test datasets
+	"""
+	#extracting female and male samples
+	female_samples = getTrainingData(femaleDataDir)
+	male_samples = getTrainingData(maleDataDir)
+
+	training_inputs,training_targets = combineSamples(female_samples,male_samples)
+
+	assert(len(training_inputs) == len(training_targets))
+
+	#building up pybrain training dataset
+	numberofInputs = len(training_inputs[0])
+	testProportion = 0.3 #30% of the dataset samples will be used for validation 
+
+	full_dataset = ClassificationDataSet(numberofInputs, nb_classes=2,class_labels=['Female','Male'])
+	for samplenum in xrange(0,len(training_inputs)):
+		full_dataset.addSample(training_inputs[samplenum],[training_targets[samplenum]])
+
+	#Randomly split the full dataset into training and test data sets
+	test_dataset, training_dataset = splitDatasetWithProportion(full_dataset,testProportion) 
+
+
 	print '----------------------------------------------------------------'
 	print '***** Running Backpropagation Trainer with parameters:\n'
 	print '* learningRate   : %s' %(learningRate)
+	print '* inputs         : %s' %(training_dataset.indim)
+	print '* outputs        : %s' %(training_dataset.outdim)
 	print '* hiddenNeurons  : %s' %(hiddenNeurons)
 	print '* bias           : %s' %(bias)
 	print '* maxIterations  : %s' %(maxIterations)
@@ -195,41 +220,19 @@ def trainGenderClassification(learningRate,hiddenNeurons,bias,maxIterations,fema
 	input_params_file = os.path.join(run_path,'inputParams.txt')
 	input_params = {
 		'learningRate': learningRate,
+		'inputs':training_dataset.indim,
+		'outputs':training_dataset.outdim,
 		'hiddenNeurons': hiddenNeurons,
 		'bias': bias,
 		'maxIterations': maxIterations,
 		'femaleDataDir': femaleDataDir,
 		'maleDataDir': maleDataDir,
+		'datasetSize':len(training_dataset),
 		'signalLength': signalLength,
 		'signalCount':signalCount,
 		'resultsFolder':resultsFolder
 	}
 	writeAsJson(input_params,input_params_file,indent=4)
-
-	#extracting female and male samples
-	female_samples = getTrainingData(femaleDataDir)
-	male_samples = getTrainingData(maleDataDir)
-
-	training_inputs,training_targets = combineSamples(female_samples,male_samples)
-
-	assert(len(training_inputs) == len(training_targets))
-
-	#building up pybrain training dataset
-	numberofInputs = len(training_inputs[0])
-	testProportion = 0.3 #30% of the dataset samples will be used for validation 
-
-	full_dataset = ClassificationDataSet(numberofInputs, nb_classes=2,class_labels=['Female','Male'])
-	for samplenum in xrange(0,len(training_inputs)):
-		full_dataset.addSample(training_inputs[samplenum],[training_targets[samplenum]])
-
-	#Randomly split the full dataset into training and test data sets
-	test_dataset, training_dataset = splitDatasetWithProportion(full_dataset,testProportion) 
-	
-	print "Number of training patterns: %s" %(len(training_dataset))
-	print "Input dimension: %s" %(training_dataset.indim)
-	print "Output dimension: %s" %(training_dataset.outdim)
-	print "Number of hidden Neurons %s" %(hiddenNeurons)
-	print "Learning Rate %s" %(learningRate)
 
 	network = buildNetwork( training_dataset.indim,hiddenNeurons, training_dataset.outdim, bias=bias )
 	trainer = BackpropTrainer(network,training_dataset,learningrate = learningRate, verbose = False)
@@ -273,7 +276,7 @@ def trainGenderClassification(learningRate,hiddenNeurons,bias,maxIterations,fema
 		Dumping network in pickle file
 	"""
 	network_result_file = os.path.join(run_path,'network.pickle')
-	
+
 	pickleDumpObject(network,network_result_file)
 	network = pickleLoadObject(network_result_file)
 
