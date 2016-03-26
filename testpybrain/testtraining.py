@@ -57,32 +57,6 @@ def getGender(output):
 	else:
 		return 'female'
 
-def test_trainer(dirname,trainer):
-	for index,file_name in enumerate(listdir(dirname)):
-		data_file = join(dirname,file_name)
-		if (not isfile(data_file)) or ('.mfcc' not in file_name): continue
-		file_data = np.loadtxt(data_file)
-		vs = getVoiceSignal(file_data,SIGNAL_LENGTH,SIGNAL_COUNT)
-
-		"""
-		Builds a new test dataset and tests the trained network on it.
-		"""
-		testdata = ClassificationDataSet(numberofInputs, nb_classes=2,class_labels=['Female','Male'])
-		testdata.addSample(vs[0],[target])
-		trainer.testOnData(testdata, verbose= True)
-
-def test_neuralnetwork(dirname,neuralNetwork):
-	for index,file_name in enumerate(listdir(dirname)):
-		data_file = join(dirname,file_name)
-		if (not isfile(data_file)) or ('.mfcc' not in file_name): continue
-		file_data = np.loadtxt(data_file)
-		vs = getVoiceSignal(file_data,SIGNAL_LENGTH,SIGNAL_COUNT)
-
-		########TODO: result must be either the mode or the average of network
-		#activation results over vs[i] 
-		result = neuralNetwork.activate(vs[0])
-		print file_name, 'classified as', getGender(result[0]), 'with', result[0], ' output'
-
 """
 	Randomly splits the full dataset into training and test data sets
 	@param fulldataset the dataset to be splited
@@ -168,10 +142,39 @@ def getClassificationOnDataset(dataset,network):
 
 
 """
+	Classifies unlabeled samples given a sample directory 
+	@param samplesdir the directory containing the unlabeled samples to be classified
+	@param network a trained network
+	@return a list containing the classified sample files and
+			a list with the respective classifications for each file and
+			a list with the respective activation values for each classification
+"""
+def classifyUnlabeledSamples(samplesdir,network):
+	sample_files = []
+	classifications = []
+	activation_values = []
+
+	for index,file_name in enumerate(listdir(samplesdir)):
+		data_file = join(samplesdir,file_name)
+		if (not isfile(data_file)) or ('.mfcc' not in file_name): 
+			continue
+
+		file_data = np.loadtxt(data_file)
+		vs = getVoiceSignal(file_data,SIGNAL_LENGTH,SIGNAL_COUNT)
+		result = network.activate(vs[0])
+		
+		sample_files.append(file_name)
+		classifications.append(getGender(result))
+		activation_values.append(result)
+
+	return sample_files,classifications,activation_values
+
+
+"""
 	Main training function
 """
 def trainGenderClassification(learningRate,hiddenNeurons,bias,maxIterations,femaleDataDir,
-							maleDataDir,signalLength,signalCount,resultsFolder):
+							maleDataDir,signalLength,signalCount,resultsFolder,checkclassdir):
 
 	"""
 		Prepating Training and Test datasets
@@ -209,6 +212,7 @@ def trainGenderClassification(learningRate,hiddenNeurons,bias,maxIterations,fema
 	print '* signalLength   : %s' %(signalLength)
 	print '* signalCount    : %s' %(signalCount)
 	print '* resultsFolder  : %s' %(resultsFolder) 
+	print '* checkclassdir  : %s' %(checkclassdir)
 	print '----------------------------------------------------------------'
 	"""
 		Computing results folder
@@ -230,7 +234,8 @@ def trainGenderClassification(learningRate,hiddenNeurons,bias,maxIterations,fema
 		'datasetSize':len(training_dataset),
 		'signalLength': signalLength,
 		'signalCount':signalCount,
-		'resultsFolder':resultsFolder
+		'resultsFolder':resultsFolder,
+		'checkclassdir':checkclassdir
 	}
 	writeAsJson(input_params,input_params_file,indent=4)
 
@@ -272,6 +277,27 @@ def trainGenderClassification(learningRate,hiddenNeurons,bias,maxIterations,fema
 	}
 	writeAsJson(results_out,results_out_file,indent=4)
 
+	if checkclassdir is not None:
+		classification_out_filename = 'classification_out.txt'
+		classification_out_file = os.path.join(run_path,classification_out_filename)
+		"""
+		Classification for unlabeled samples
+		"""
+		print '----------------------------------------------------------------'
+		print '****Classifying samples in %s directory. ' %(checkclassdir)
+		print' ****Dumping results in  \"%s\" file ' %(classification_out_filename)
+		print '----------------------------------------------------------------'
+		
+		sample_files,classifications,activation_values = classifyUnlabeledSamples(checkclassdir,network)
+		assert((len(sample_files) == len(classifications)) and(len(sample_files)==len(activation_values)))
+
+		with open(classification_out_file, "a") as outfile:
+			for samplenum,_ in enumerate(sample_files):
+				classification_message = "#%s file \"%s\" classified as <%s>. Activation value: %s " %(samplenum+1,sample_files[samplenum],classifications[samplenum],activation_values[samplenum])
+				print classification_message
+				outfile.write(classification_message+'\n')
+	else:
+		print 'No additional samples were specified. <checkclassdir>'
 	"""
 		Dumping network in pickle file
 	"""
@@ -280,6 +306,9 @@ def trainGenderClassification(learningRate,hiddenNeurons,bias,maxIterations,fema
 	pickleDumpObject(network,network_result_file)
 	network = pickleLoadObject(network_result_file)
 
+"""
+	Main program
+"""
 if __name__ == '__main__':
 	arguments = extractCommandParams(sys.argv[1:]) 
 
@@ -295,6 +324,7 @@ if __name__ == '__main__':
 	DEFAULT_SIGNAL_LENGTH = 15
 	DEFAULT_SIGNAL_COUNT = 1
 	DEFAULT_RESULTS_FOLDER = 'gender-class-runs' #default name of folder where to place the result files
+	DEFAULT_CHECK_CLASS_DIR = None
 
 	if "signallength" in arguments:
 	  signalLength = arguments["signallength"]
@@ -311,9 +341,14 @@ if __name__ == '__main__':
 	else:
 	  resultsFolder = DEFAULT_RESULTS_FOLDER
 
+	if "checkclassdir" in arguments:
+	 	checkclassdir = arguments["checkclassdir"]
+	else:
+	 	checkclassdir = DEFAULT_CHECK_CLASS_DIR
+
 	SIGNAL_LENGTH = signalLength
 	SIGNAL_COUNT = signalCount
 	trainGenderClassification(learningRate=learningRate,hiddenNeurons=hiddenNeurons,bias=bias,
 							maxIterations=maxIterations,femaleDataDir=femaleDataDir,
 							maleDataDir=maleDataDir,signalLength=signalLength,
-							signalCount=signalCount,resultsFolder=resultsFolder)
+							signalCount=signalCount,resultsFolder=resultsFolder,checkclassdir=checkclassdir)
