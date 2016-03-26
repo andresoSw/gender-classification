@@ -1,10 +1,6 @@
 # gender-classification
 Gender classification from speech using neural networks
 
-
-# GABIL-GA
-Implementation of Genetic Algorithm (GABIL) for classification
-
 #### Installation
 TODO
 
