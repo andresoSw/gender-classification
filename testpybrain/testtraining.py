@@ -14,10 +14,11 @@ def getTrainingData(dirname):
 	target = 0
 	dir_input = []
 	dir_target = []
-	if dirname == 'female':
+	if dirname.startswith('male'):
+		target = 1
+	elif dirname.startswith('female'):
 		target = 0
-	elif dirname == 'male':
-		target = 1 
+	print target
 	for index,file_name in enumerate(listdir(dirname)):
 		data_file = join(dirname,file_name)
 		if (not isfile(data_file)) or ('.mfcc' not in file_name): continue
@@ -53,9 +54,6 @@ def getGender(output):
 		return 'female'
 
 def test_trainer(dirname,trainer):
-	classes = {'female':0,'male':1}
-	target = classes[dirname]
-
 	for index,file_name in enumerate(listdir(dirname)):
 		data_file = join(dirname,file_name)
 		if (not isfile(data_file)) or ('.mfcc' not in file_name): continue
@@ -71,7 +69,7 @@ def test_trainer(dirname,trainer):
 
 def test_neuralnetwork(dirname,neuralNetwork):
 	classes = {'female':0,'male':1}
-	target = classes[dirname]
+	# target = classes[dirname]
 
 	for index,file_name in enumerate(listdir(dirname)):
 		data_file = join(dirname,file_name)
@@ -84,12 +82,12 @@ def test_neuralnetwork(dirname,neuralNetwork):
 
 if __name__ == '__main__':
 	#obtaining female_data
-	female_data = getTrainingData('female')
+	female_data = getTrainingData('female_big')
 	female_input = female_data[0]
 	female_target =  female_data[1]
 
 	#obtanining male data
-	male_data = getTrainingData('male')
+	male_data = getTrainingData('male_big')
 	male_input = male_data[0]
 	male_target =  male_data[1]
 
@@ -112,7 +110,7 @@ if __name__ == '__main__':
 	#building up the network 
 	NUMBER_OF_HIDDEN_NEURONS = 200
 	LEARNING_RATE = 0.01
-	MAX_ITERATIONS = 1000
+	MAX_ITERATIONS = 750
 
 	print "Number of training patterns: %s" %(len(training_dataset))
 	print "Input dimension: %s" %(training_dataset.indim)
@@ -129,11 +127,15 @@ if __name__ == '__main__':
 		print '%s Train Error: %s Train Accuracy: %s' %(epoch,epoch_error,1-epoch_error)
 
 	# Testing network on directories
-	male_dir = 'male'
-	female_dir = 'female'
+	male_dir = 'male_big'
+	female_dir = 'female_big'
+	test_dir = 'test'
 	
 	print 'Test for %s directory' % (male_dir)
 
 	test_neuralnetwork(male_dir,network)
 	print 'Test for %s directory' % (female_dir)
 	test_neuralnetwork(female_dir,network)
+
+	print 'Test for %s directory' % (test_dir)
+	test_neuralnetwork(test_dir,network)
