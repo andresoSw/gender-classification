@@ -108,21 +108,25 @@ if __name__ == '__main__':
 	for samplenum in xrange(0,len(training_input)):
 		training_dataset.addSample(training_input[samplenum],[training_target[samplenum]])
 
-	print "Number of training patterns: %s" %(len(training_dataset))
-	print "Input dimension: %s" %(training_dataset.indim)
-	print "Output dimension: %s" %(training_dataset.outdim)
 
 	#building up the network 
 	NUMBER_OF_HIDDEN_NEURONS = 200
 	LEARNING_RATE = 0.01
 	MAX_ITERATIONS = 1000
 
+	print "Number of training patterns: %s" %(len(training_dataset))
+	print "Input dimension: %s" %(training_dataset.indim)
+	print "Output dimension: %s" %(training_dataset.outdim)
+	print "Number of hidden Neurons %s" %(NUMBER_OF_HIDDEN_NEURONS)
+	print "Learning Rate %s" %(LEARNING_RATE)
+
 	network = buildNetwork( training_dataset.indim,NUMBER_OF_HIDDEN_NEURONS, training_dataset.outdim, bias=True )
-	trainer = BackpropTrainer(network,training_dataset,learningrate = LEARNING_RATE, verbose = True)
+	trainer = BackpropTrainer(network,training_dataset,learningrate = LEARNING_RATE, verbose = False)
 
 	#training with training dataset
 	for epoch in xrange(0,MAX_ITERATIONS):
-		trainer.train()
+		epoch_error = trainer.train()
+		print '%s Train Error: %s Train Accuracy: %s' %(epoch,epoch_error,1-epoch_error)
 
 	# Testing network on directories
 	male_dir = 'male'
