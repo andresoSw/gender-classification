@@ -27,12 +27,11 @@ def extractCommandParams(argv):
                         '\tLong  ARGS: testtraining.py --learningrate <rate> ' \
                         '--hiddenneurons <howmany> --bias <true,false> --iterations <howmany>'\
                         '--femaledir <path> --maledir <path>\n\n'\
-                        '\t[OPTIONAL ARGS] --signallength <length> --signalcount <count> --checkclassdir <parh> --rfolder <path> '\
-                        '--elitism <true,false> --pselection <roulette,rank,tournament>\n\n'\
+                        '\t[OPTIONAL ARGS] --momentum <rate> --signallength <length> --signalcount <count> --checkclassdir <parh> --rfolder <path> '\
                         '$ Please refer to the README.md file for further explanation\n'
 
    mandatory_args = [("-l","--learningrate"),("-h","--hiddenneurons"),("-b","--bias"),("-i","--iterations"),("-f","--femaledir"),("-m","--maledir")]
-   optional_args = [("--signallength"),("--signalcount"),("--checkclassdir"),("--rfolder")]
+   optional_args = [("--momentum"),("--signallength"),("--signalcount"),("--checkclassdir"),("--rfolder")]
 
    # checking that all mandatory arguments were provide within the command line
    for shortArg,longArg in mandatory_args:
@@ -43,7 +42,7 @@ def extractCommandParams(argv):
   
    try:
       opts, args = getopt.getopt(argv,'l:h:b:i:f:m:',['learningrate=','hiddenneurons=','bias=','iterations=',
-      												'femaledir=','maledir=','signallength=','signalcount=','checkclassdir=',
+      												'femaledir=','maledir=','momentum=','signallength=','signalcount=','checkclassdir=',
       												'rfolder='])
    except getopt.GetoptError:
       print how_to_use_message
@@ -75,6 +74,8 @@ def extractCommandParams(argv):
       	parsed_arguments["checkclassdir"] = arg
       elif opt == "--rfolder":
       	parsed_arguments["rfolder"] = arg
+      elif opt == "--momentum":
+         parsed_arguments["momentum"] = float(arg)
 
    return parsed_arguments
 

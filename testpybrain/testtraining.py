@@ -174,7 +174,7 @@ def classifyUnlabeledSamples(samplesdir,network):
 	Main training function
 """
 def trainGenderClassification(learningRate,hiddenNeurons,bias,maxIterations,femaleDataDir,
-							maleDataDir,signalLength,signalCount,resultsFolder,checkclassdir):
+							maleDataDir,momentum,signalLength,signalCount,resultsFolder,checkclassdir):
 
 	"""
 		Prepating Training and Test datasets
@@ -206,6 +206,7 @@ def trainGenderClassification(learningRate,hiddenNeurons,bias,maxIterations,fema
 	print '* outputs        : %s' %(training_dataset.outdim)
 	print '* hiddenNeurons  : %s' %(hiddenNeurons)
 	print '* bias           : %s' %(bias)
+	print '* momentum       : %s' %(momentum)
 	print '* maxIterations  : %s' %(maxIterations)
 	print '* femaleDataDir  : %s' %(femaleDataDir)
 	print '* maleDataDir    : %s' %(maleDataDir) 
@@ -228,6 +229,7 @@ def trainGenderClassification(learningRate,hiddenNeurons,bias,maxIterations,fema
 		'outputs':training_dataset.outdim,
 		'hiddenNeurons': hiddenNeurons,
 		'bias': bias,
+		'momentum': momentum,
 		'maxIterations': maxIterations,
 		'femaleDataDir': femaleDataDir,
 		'maleDataDir': maleDataDir,
@@ -240,7 +242,7 @@ def trainGenderClassification(learningRate,hiddenNeurons,bias,maxIterations,fema
 	writeAsJson(input_params,input_params_file,indent=4)
 
 	network = buildNetwork( training_dataset.indim,hiddenNeurons, training_dataset.outdim, bias=bias )
-	trainer = BackpropTrainer(network,training_dataset,learningrate = learningRate, verbose = False)
+	trainer = BackpropTrainer(network,training_dataset,learningrate = learningRate, momentum=momentum, verbose = False)
 
 	epoch_error = 0 #keeps track of the last error
 	#training with training dataset
@@ -321,10 +323,16 @@ if __name__ == '__main__':
 	maleDataDir = arguments["maledir"]
 
 	#optional args
+	DEFAULT_MOMENTUM = 0.
 	DEFAULT_SIGNAL_LENGTH = 15
 	DEFAULT_SIGNAL_COUNT = 1
 	DEFAULT_RESULTS_FOLDER = 'gender-class-runs' #default name of folder where to place the result files
 	DEFAULT_CHECK_CLASS_DIR = None
+
+	if "momentum" in arguments:
+		momentum = arguments["momentum"]
+	else:
+		momentum = DEFAULT_MOMENTUM
 
 	if "signallength" in arguments:
 	  signalLength = arguments["signallength"]
@@ -350,5 +358,5 @@ if __name__ == '__main__':
 	SIGNAL_COUNT = signalCount
 	trainGenderClassification(learningRate=learningRate,hiddenNeurons=hiddenNeurons,bias=bias,
 							maxIterations=maxIterations,femaleDataDir=femaleDataDir,
-							maleDataDir=maleDataDir,signalLength=signalLength,
+							maleDataDir=maleDataDir,momentum=momentum,signalLength=signalLength,
 							signalCount=signalCount,resultsFolder=resultsFolder,checkclassdir=checkclassdir)
