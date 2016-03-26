@@ -8,7 +8,7 @@ from os.path import isfile,join
 import numpy as np
 import random
 
-from utilities import extractCommandParams,createRunFolder,writeAsJson
+from utilities import extractCommandParams,createRunFolder,writeAsJson,pickleDumpObject,pickleLoadObject
 import sys
 
 global SIGNAL_LENGTH,SIGNAL_COUNT
@@ -268,6 +268,14 @@ def trainGenderClassification(learningRate,hiddenNeurons,bias,maxIterations,fema
 		"test_error":test_error #w test dataset
 	}
 	writeAsJson(results_out,results_out_file,indent=4)
+
+	"""
+		Dumping network in pickle file
+	"""
+	network_result_file = os.path.join(run_path,'network.pickle')
+	
+	pickleDumpObject(network,network_result_file)
+	network = pickleLoadObject(network_result_file)
 
 if __name__ == '__main__':
 	arguments = extractCommandParams(sys.argv[1:]) 

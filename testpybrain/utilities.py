@@ -1,6 +1,8 @@
 import sys, getopt
 import os
 import json
+import pickle
+
 """
    Utilities module
 """
@@ -8,6 +10,13 @@ import json
 def writeAsJson(content,file,indent=0):
    with open(file, 'w') as outfile:
       json.dump(content, outfile,indent=indent)
+
+def pickleDumpObject(obj,_file):
+   pickle.dump(obj, file(_file,'wb'))
+
+def pickleLoadObject(_file):
+   obj = pickle.load(file(_file,'rb'))
+   return obj
 
 """
    @return a dictionary of parsed arguments
