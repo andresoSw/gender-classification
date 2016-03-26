@@ -11,7 +11,8 @@ import random
 from utilities import extractCommandParams,createRunFolder,writeAsJson
 import sys
 
-SIGNAL_LENGTH = 15
+global SIGNAL_LENGTH,SIGNAL_COUNT
+SIGNAL_COUNT = 15
 SIGNAL_COUNT = 1
 
 def getTrainingData(dirname):
@@ -83,6 +84,90 @@ def test_neuralnetwork(dirname,neuralNetwork):
 		print file_name, 'classified as', getGender(result[0]), 'with', result[0], ' output'
 
 """
+	Randomly splits the full dataset into training and test data sets
+	@param fulldataset the dataset to be splited
+	@param testSeparationProportion the percentaje of samples to be included 
+			within the valiadtion (test) dataset
+	@return a tuple containg the test and training datasets respectively
+"""
+#Randomly split the full dataset into training and test data sets
+def splitDatasetWithProportion(fulldataset,testSeparationProportion):
+	#Randomly split the full dataset into training test data sets
+	test_dataset_temp, training_dataset_temp = fulldataset.splitWithProportion(testSeparationProportion)
+
+	training_dataset = ClassificationDataSet(fulldataset.indim, nb_classes=2,class_labels=['Female','Male'])
+	for samplenum in xrange(0,training_dataset_temp.getLength()):
+		training_dataset.addSample(training_dataset_temp.getSample(samplenum)[0],training_dataset_temp.getSample(samplenum)[1])
+
+	test_dataset = ClassificationDataSet(fulldataset.indim, nb_classes=2,class_labels=['Female','Male'])
+	for samplenum in xrange(0, test_dataset_temp.getLength()):
+		test_dataset.addSample( test_dataset_temp.getSample(samplenum)[0],test_dataset_temp.getSample(samplenum)[1] )
+
+	return test_dataset,training_dataset
+
+"""
+	Return the combination of two given samples
+	@param sample a sample to be combined
+	@param othersample a sample to be combined
+	@return the combined sample
+"""
+def combineSamples(sample,othersample):
+	
+	sample_inputs,sample_targets = sample
+	othersample_inputs,othersample_targets = othersample
+
+	# combining both samples
+	combined_inputs = sample_inputs + othersample_inputs
+	combined_targets = sample_targets + othersample_targets
+
+	#zipping inputs and ouputs in order to apply random shuffle
+	combined_samples = zip(combined_inputs, combined_targets)
+	random.shuffle(combined_samples)
+	combined_inputs[:], combined_targets[:] = zip(*combined_samples)
+	return (combined_inputs,combined_targets)
+
+"""
+	@param dataset the validation (test) dataset
+	@param network the trained network
+	@return the percentaje of incorrect classifications
+"""
+def testOnDataset(dataset,network,verbose=False):
+	estimated_outputs,targets = getClassificationOnDataset(dataset,network)
+	if verbose:
+		print 'estimated outputs: ', estimated_outputs
+		print 'targets: ', targets
+	assert(len(estimated_outputs) == len(targets))
+	assert(len(estimated_outputs) == dataset.getLength())
+
+	#if classification matches adds int(True)=1, 0 otherwise int(False)=0 
+	corrects = sum([int(estimated_outputs[sample]==targets[sample]) for sample,_ in enumerate(estimated_outputs) ])
+	totalAccuracy = corrects/float(dataset.getLength())
+	totalError = 1-totalAccuracy
+	return totalError
+
+"""
+	@param dataset the validation (test) dataset
+	@param network the trained network
+	@return two lists,the first one containing the estimated outputs and a
+			second one with the real targets
+"""
+def getClassificationOnDataset(dataset,network):
+	estimated_outputs = []
+	targets = []
+
+	for samplenum in xrange(0,dataset.getLength()):
+		_input = dataset.getSample(samplenum)[0]
+		target = dataset.getSample(samplenum)[1]
+
+		estimated_output = network.activate(_input)
+
+		estimated_outputs.append(getGender(estimated_output))
+		targets.append(getGender(target))
+
+	return estimated_outputs,targets
+
+
+"""
 	Main training function
 """
 def trainGenderClassification(learningRate,hiddenNeurons,bias,maxIterations,femaleDataDir,
@@ -119,33 +204,27 @@ def trainGenderClassification(learningRate,hiddenNeurons,bias,maxIterations,fema
 		'signalCount':signalCount,
 		'resultsFolder':resultsFolder
 	}
-	writeAsJson(input_params,input_params_file)
+	writeAsJson(input_params,input_params_file,indent=4)
 
-	#obtaining female_data
-	female_data = getTrainingData(femaleDataDir)
-	female_input = female_data[0]
-	female_target =  female_data[1]
+	#extracting female and male samples
+	female_samples = getTrainingData(femaleDataDir)
+	male_samples = getTrainingData(maleDataDir)
 
-	#obtanining male data
-	male_data = getTrainingData(maleDataDir)
-	male_input = male_data[0]
-	male_target =  male_data[1]
+	training_inputs,training_targets = combineSamples(female_samples,male_samples)
 
-	# combining both data and applying random sort
-	training_input = female_input + male_input
-	training_target = female_target + male_target
-	training_data = zip(training_input, training_target)
-	random.shuffle(training_data)
-	training_input[:], training_target[:] = zip(*training_data)
-
-	assert(len(training_input) == len(training_target))
+	assert(len(training_inputs) == len(training_targets))
 
 	#building up pybrain training dataset
-	numberofInputs = len(training_input[0])
-	training_dataset = ClassificationDataSet(numberofInputs, nb_classes=2,class_labels=['Female','Male'])
-	for samplenum in xrange(0,len(training_input)):
-		training_dataset.addSample(training_input[samplenum],[training_target[samplenum]])
+	numberofInputs = len(training_inputs[0])
+	testProportion = 0.3 #30% of the dataset samples will be used for validation 
 
+	full_dataset = ClassificationDataSet(numberofInputs, nb_classes=2,class_labels=['Female','Male'])
+	for samplenum in xrange(0,len(training_inputs)):
+		full_dataset.addSample(training_inputs[samplenum],[training_targets[samplenum]])
+
+	#Randomly split the full dataset into training and test data sets
+	test_dataset, training_dataset = splitDatasetWithProportion(full_dataset,testProportion) 
+	
 	print "Number of training patterns: %s" %(len(training_dataset))
 	print "Input dimension: %s" %(training_dataset.indim)
 	print "Output dimension: %s" %(training_dataset.outdim)
@@ -155,25 +234,40 @@ def trainGenderClassification(learningRate,hiddenNeurons,bias,maxIterations,fema
 	network = buildNetwork( training_dataset.indim,hiddenNeurons, training_dataset.outdim, bias=bias )
 	trainer = BackpropTrainer(network,training_dataset,learningrate = learningRate, verbose = False)
 
+	epoch_error = 0 #keeps track of the last error
 	#training with training dataset
 	for epoch in xrange(0,maxIterations):
 		epoch_error = trainer.train()
 		print '%s Train Error: %s Train Accuracy: %s' %(epoch,epoch_error,1-epoch_error)
-
-	# Testing network on directories
-	male_dir = maleDataDir
-	female_dir = femaleDataDir
-	test_dir = 'test'
 	
-	print 'Test for %s directory' % (male_dir)
+	training_error = epoch_error
+	training_accuracy = 1-training_error
 
-	test_neuralnetwork(male_dir,network)
-	print 'Test for %s directory' % (female_dir)
-	test_neuralnetwork(female_dir,network)
+	test_error = testOnDataset(test_dataset,network)
+	test_accuracy = 1-test_error
 
-	print 'Test for %s directory' % (test_dir)
-	test_neuralnetwork(test_dir,network)
-	 
+	print '----------------------------------------------------------------'
+	print '**** Training Results:'
+	print '----------------------------------------------------------------'
+	print '* Training Dataset Accuracy: %s' %(training_accuracy)
+	print '* Training Dataset Error: %s' %(training_error)
+	print '* Test Dataset Accuracy: %s' %(test_accuracy)
+	print '* Test Dataset Error %s' %(test_error)
+	print '----------------------------------------------------------------'
+	print 'Dumping Results in \"results_out.txt\" file '
+	print '----------------------------------------------------------------'
+	
+	"""
+		Dumping results in out file
+	"""
+	results_out_file = os.path.join(run_path,'results_out.txt')
+	results_out = {
+		"training_accuracy":training_accuracy, #w training dataset
+		"training_error":training_error, #w training dataset
+		"test_accuracy":test_accuracy, #w test dataset
+		"test_error":test_error #w test dataset
+	}
+	writeAsJson(results_out,results_out_file,indent=4)
 
 if __name__ == '__main__':
 	arguments = extractCommandParams(sys.argv[1:]) 
@@ -185,7 +279,6 @@ if __name__ == '__main__':
 	maxIterations = arguments["iterations"]
 	femaleDataDir = arguments["femaledir"]
 	maleDataDir = arguments["maledir"]
-	global SIGNAL_LENGTH,SIGNAL_COUNT
 
 	#optional args
 	DEFAULT_SIGNAL_LENGTH = 15
