@@ -68,15 +68,14 @@ def test_trainer(dirname,trainer):
 		trainer.testOnData(testdata, verbose= True)
 
 def test_neuralnetwork(dirname,neuralNetwork):
-	classes = {'female':0,'male':1}
-	# target = classes[dirname]
-
 	for index,file_name in enumerate(listdir(dirname)):
 		data_file = join(dirname,file_name)
 		if (not isfile(data_file)) or ('.mfcc' not in file_name): continue
 		file_data = np.loadtxt(data_file)
 		vs = getVoiceSignal(file_data,SIGNAL_LENGTH,SIGNAL_COUNT)
 
+		########TODO: result must be either the mode or the average of network
+		#activation results over vs[i] 
 		result = neuralNetwork.activate(vs[0])
 		print file_name, 'classified as', getGender(result[0]), 'with', result[0], ' output'
 
