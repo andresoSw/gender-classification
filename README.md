@@ -26,7 +26,6 @@ Below there is a list of the mandatory and optional arguments to be provided res
 | Number of Iterations            |     -i              |    --iterations          |          int number             |
 | Female Samples Path             |     -f              |    --femaledir           |  path to female samples folder  |
 | Male Samples Path               |     -m              |    --maledir             |  path to male samples folder    |
-,,("--checkclassdir"),("--rfolder")]
 
 * Optional Arguments
 
