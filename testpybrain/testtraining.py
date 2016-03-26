@@ -286,8 +286,8 @@ def trainGenderClassification(learningRate,hiddenNeurons,bias,maxIterations,fema
 		Classification for unlabeled samples
 		"""
 		print '----------------------------------------------------------------'
-		print '****Classifying samples in %s directory. ' %(checkclassdir)
-		print' ****Dumping results in  \"%s\" file ' %(classification_out_filename)
+		print '**** Classifying samples in %s directory. ' %(checkclassdir)
+		print '**   Dumping results in  \"%s\" file ' %(classification_out_filename)
 		print '----------------------------------------------------------------'
 		
 		sample_files,classifications,activation_values = classifyUnlabeledSamples(checkclassdir,network)
