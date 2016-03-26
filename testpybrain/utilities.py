@@ -108,37 +108,3 @@ def createRunFolder(resultsFolder,runFolderPrefix='run_'):
           if not os.path.isdir(run_path):
               raise
       return run_path
-
-if __name__ == "__main__":
-   #ignoring the name of the program from the command line args
-   arguments = extractCommandParams(sys.argv[1:]) 
-
-   #mandatory args
-   learningRate = arguments["learningrate"]
-   hiddenNeurons = arguments["hiddenneurons"]
-   bias = arguments["bias"]
-   maxIterations = arguments["iterations"]
-   female_data_dir = arguments["femaledir"]
-   male_data_dir = arguments["maledir"]
-
-   #optional args
-   DEFAULT_SIGNAL_LENGTH = 15
-   DEFAULT_SIGNAL_COUNT = 1
-   DEFAULT_RESULTS_FOLDER = 'gender-class-runs' #default name of folder where to place the result files
-
-   if "signallength" in arguments:
-      signal_length = arguments["signallength"]
-   else:
-      signal_length = DEFAULT_SIGNAL_LENGTH
-
-   if "signalcount" in arguments:
-      signal_count = arguments["signalcount"]
-   else:
-      signal_count = DEFAULT_SIGNAL_COUNT
-
-   if "rfolder" in arguments:
-      results_folder = arguments["rfolder"]
-   else:
-      results_folder = DEFAULT_RESULTS_FOLDER 
-
-   print arguments
