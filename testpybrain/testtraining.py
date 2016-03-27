@@ -197,7 +197,8 @@ def trainGenderClassification(learningRate,hiddenNeurons,bias,maxIterations,fema
 
 	#Randomly split the full dataset into training and test data sets
 	test_dataset, training_dataset = splitDatasetWithProportion(full_dataset,testProportion) 
-
+	if hiddenNeurons is None:
+		hiddenNeurons= (training_dataset.indim + training_dataset.outdim)/2
 
 	print '----------------------------------------------------------------'
 	print '***** Running Backpropagation Trainer with parameters:\n'
@@ -327,7 +328,7 @@ if __name__ == '__main__':
 	DEFAULT_SIGNAL_COUNT = 1
 	DEFAULT_RESULTS_FOLDER = 'gender-class-runs' #default name of folder where to place the result files
 	DEFAULT_CHECK_CLASS_DIR = None
-	DEFAULT_MFCC_COEFFICIENTS = 13
+	DEFAULT_HIDDEN_NEURONS = None #flag, if none the number is based on the input units
 
 	if "momentum" in arguments:
 		momentum = arguments["momentum"]
@@ -342,8 +343,6 @@ if __name__ == '__main__':
 	else:
 	  signalLength = DEFAULT_SIGNAL_LENGTH
 
-	#default number of hidden neurons depends on the signal length
-	DEFAULT_HIDDEN_NEURONS = DEFAULT_MFCC_COEFFICIENTS*signalLength/2
 	if "hiddenneurons" in arguments:
 		hiddenNeurons  = arguments["hiddenneurons"]
 	else:
