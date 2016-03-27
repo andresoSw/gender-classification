@@ -23,15 +23,15 @@ def pickleLoadObject(_file):
 """
 def extractCommandParams(argv):
    how_to_use_message = '$ Usage: \n\tShort ARGS: testtraining.py -l <rate> ' \
-                        '-h <howmany> -b <true,false> -i <howmany> -f <path> -m <path>\n'\
+                        ' -i <howmany> -f <path> -m <path>\n'\
                         '\tLong  ARGS: testtraining.py --learningrate <rate> ' \
-                        '--hiddenneurons <howmany> --iterations <howmany>'\
+                        ' --iterations <howmany>'\
                         '--femaledir <path> --maledir <path>\n\n'\
-                        '\t[OPTIONAL ARGS] --momentum <rate> --bias <true,false> --signallength <length> --signalcount <count> --checkclassdir <parh> --rfolder <path> '\
+                        '\t[OPTIONAL ARGS] --hiddenneurons <howmany> --momentum <rate> --bias <true,false> --signallength <length> --signalcount <count> --checkclassdir <parh> --rfolder <path> '\
                         '$ Please refer to the README.md file for further explanation\n'
 
-   mandatory_args = [("-l","--learningrate"),("-h","--hiddenneurons"),("-i","--iterations"),("-f","--femaledir"),("-m","--maledir")]
-   optional_args = [("--momentum"),("--bias"),("--signallength"),("--signalcount"),("--checkclassdir"),("--rfolder")]
+   mandatory_args = [("-l","--learningrate"),("-i","--iterations"),("-f","--femaledir"),("-m","--maledir")]
+   optional_args = [("--hiddenneurons"),("--momentum"),("--bias"),("--signallength"),("--signalcount"),("--checkclassdir"),("--rfolder")]
 
    # checking that all mandatory arguments were provide within the command line
    for shortArg,longArg in mandatory_args:
@@ -41,8 +41,9 @@ def extractCommandParams(argv):
          sys.exit(2)
   
    try:
-      opts, args = getopt.getopt(argv,'l:h:i:f:m:',['learningrate=','hiddenneurons=','iterations=',
-      												'femaledir=','maledir=','momentum=','bias=','signallength=','signalcount=','checkclassdir=',
+      opts, args = getopt.getopt(argv,'l:i:f:m:',['learningrate=','iterations=',
+      												'femaledir=','maledir=','hiddenneurons=','momentum=',
+                                          'bias=','signallength=','signalcount=','checkclassdir=',
       												'rfolder='])
    except getopt.GetoptError:
       print how_to_use_message
@@ -54,8 +55,6 @@ def extractCommandParams(argv):
       #mandatory args
       if opt in ("-l","--learningrate"):
          parsed_arguments["learningrate"] = float(arg)
-      elif opt in ("-h","--hiddenneurons"):
-         parsed_arguments["hiddenneurons"] = int(arg)
       elif opt in ("-i","--iterations"):
          parsed_arguments["iterations"] = int(arg)
       elif opt in ("-f","--femaledir"):
@@ -72,6 +71,8 @@ def extractCommandParams(argv):
       	parsed_arguments["checkclassdir"] = arg
       elif opt == "--rfolder":
       	parsed_arguments["rfolder"] = arg
+      elif opt == ("--hiddenneurons"):
+         parsed_arguments["hiddenneurons"] = int(arg)
       elif opt == "--momentum":
          parsed_arguments["momentum"] = float(arg)
       elif opt == "--bias":

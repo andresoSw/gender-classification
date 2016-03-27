@@ -316,7 +316,6 @@ if __name__ == '__main__':
 
 	#mandatory args
 	learningRate = arguments["learningrate"]
-	hiddenNeurons = arguments["hiddenneurons"]
 	maxIterations = arguments["iterations"]
 	femaleDataDir = arguments["femaledir"]
 	maleDataDir = arguments["maledir"]
@@ -328,6 +327,7 @@ if __name__ == '__main__':
 	DEFAULT_SIGNAL_COUNT = 1
 	DEFAULT_RESULTS_FOLDER = 'gender-class-runs' #default name of folder where to place the result files
 	DEFAULT_CHECK_CLASS_DIR = None
+	DEFAULT_MFCC_COEFFICIENTS = 13
 
 	if "momentum" in arguments:
 		momentum = arguments["momentum"]
@@ -341,6 +341,13 @@ if __name__ == '__main__':
 	  signalLength = arguments["signallength"]
 	else:
 	  signalLength = DEFAULT_SIGNAL_LENGTH
+
+	#default number of hidden neurons depends on the signal length
+	DEFAULT_HIDDEN_NEURONS = DEFAULT_MFCC_COEFFICIENTS*signalLength/2
+	if "hiddenneurons" in arguments:
+		hiddenNeurons  = arguments["hiddenneurons"]
+	else:
+		hiddenNeurons = DEFAULT_HIDDEN_NEURONS
 
 	if "signalcount" in arguments:
 	  signalCount = arguments["signalcount"]
