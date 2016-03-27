@@ -21,7 +21,6 @@ Below there is a list of the mandatory and optional arguments to be provided res
 | Argument                        |Short Version        | Long Version             | Expected Value                  |
 |---------------------------------|---------------------|--------------------------|---------------------------------|
 | Learning Rate                   |     -l              |    --learningrate        |          float number           |
-| Number of Hidden Neurons        |     -h              |    --hiddenneurons       |          int number             |
 | Number of Iterations            |     -i              |    --iterations          |          int number             |
 | Female Samples Path             |     -f              |    --femaledir           |  path to female samples folder  |
 | Male Samples Path               |     -m              |    --maledir             |  path to male samples folder    |
@@ -30,6 +29,7 @@ Below there is a list of the mandatory and optional arguments to be provided res
 
 | Argument                                 | Specification        |Expected Value        |Default Value                   |
 |------------------------------------------|--------------------- |----------------------|--------------------------------|
+| Number of Hidden Neurons                 |    --hiddenneurons   |          int number  | (inputUnits + outputUnits)/2   |
 | Momentum                                 |--momentum            | float number         |   0.0                          |
 | Bias                                     |--bias                | true or false        |   true                         |
 | Signal Length                            |--signallength        | int number           |   15                           |
@@ -38,7 +38,10 @@ Below there is a list of the mandatory and optional arguments to be provided res
 | Unlabeled samples Path                   |--checkclassdir       | path to samples      |  None                          |
 
 
-In case that any of the optional argument is not specified, its default value will be used instead
+In case that any of the optional argument is not specified, its default value will be used instead.
+Notes:
+  * Number of input units comes from the number of mfcc coefficients taken into account for each sample.
+  * There is only 1 output unit (2 classes: 'male' and 'female')
 
 ####Example of project invocation:
 
