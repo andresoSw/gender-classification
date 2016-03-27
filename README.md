@@ -35,6 +35,7 @@ Below there is a list of the mandatory and optional arguments to be provided res
 | Signal Length                            |--signallength        | int number           |   15                           |
 | Signal Count                             |--signalcount         | int number           |   1                            |
 | Results Folder                           |--rfolder             | path to folder       |  /gender-classification-runs   |
+| Unlabeled samples Path                   |--checkclassdir       | path to samples      |  None                          |
 
 
 In case that any of the optional argument is not specified, its default value will be used instead
