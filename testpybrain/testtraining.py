@@ -317,13 +317,13 @@ if __name__ == '__main__':
 	#mandatory args
 	learningRate = arguments["learningrate"]
 	hiddenNeurons = arguments["hiddenneurons"]
-	bias = arguments["bias"]
 	maxIterations = arguments["iterations"]
 	femaleDataDir = arguments["femaledir"]
 	maleDataDir = arguments["maledir"]
 
 	#optional args
 	DEFAULT_MOMENTUM = 0.
+	DEFAULT_BIAS = True
 	DEFAULT_SIGNAL_LENGTH = 15
 	DEFAULT_SIGNAL_COUNT = 1
 	DEFAULT_RESULTS_FOLDER = 'gender-class-runs' #default name of folder where to place the result files
@@ -333,7 +333,10 @@ if __name__ == '__main__':
 		momentum = arguments["momentum"]
 	else:
 		momentum = DEFAULT_MOMENTUM
-
+	if "bias" in arguments:
+		bias = arguments["bias"]
+	else:
+		bias = DEFAULT_BIAS
 	if "signallength" in arguments:
 	  signalLength = arguments["signallength"]
 	else:
