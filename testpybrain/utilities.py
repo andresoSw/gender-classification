@@ -27,11 +27,12 @@ def extractCommandParams(argv):
                         '\tLong  ARGS: testtraining.py --learningrate <rate> ' \
                         ' --iterations <howmany>'\
                         '--femaledir <path> --maledir <path>\n\n'\
-                        '\t[OPTIONAL ARGS] --hiddenneurons <howmany> --momentum <rate> --bias <true,false> --signallength <length> --signalcount <count> --checkclassdir <parh> --rfolder <path> '\
+                        '\t[OPTIONAL ARGS] --hiddenneurons <howmany> --momentum <rate> --bias <true,false> --signallength <length> --signalcount <count> '\
+                        '--signalclass <avg or mode> --checkclassdir <parh> --rfolder <path> '\
                         '$ Please refer to the README.md file for further explanation\n'
 
    mandatory_args = [("-l","--learningrate"),("-i","--iterations"),("-f","--femaledir"),("-m","--maledir")]
-   optional_args = [("--hiddenneurons"),("--momentum"),("--bias"),("--signallength"),("--signalcount"),("--checkclassdir"),("--rfolder")]
+   optional_args = [("--hiddenneurons"),("--momentum"),("--bias"),("--signallength"),("--signalcount"),("--signalclass"),("--checkclassdir"),("--rfolder")]
 
    # checking that all mandatory arguments were provide within the command line
    for shortArg,longArg in mandatory_args:
@@ -43,7 +44,7 @@ def extractCommandParams(argv):
    try:
       opts, args = getopt.getopt(argv,'l:i:f:m:',['learningrate=','iterations=',
       												'femaledir=','maledir=','hiddenneurons=','momentum=',
-                                          'bias=','signallength=','signalcount=','checkclassdir=',
+                                          'bias=','signallength=','signalcount=','signalclass=','checkclassdir=',
       												'rfolder='])
    except getopt.GetoptError:
       print how_to_use_message
@@ -77,6 +78,12 @@ def extractCommandParams(argv):
          parsed_arguments["momentum"] = float(arg)
       elif opt == "--bias":
          parsed_arguments["bias"] = arg.lower() in ['true','t']
+      elif opt == "--signalclass":
+         if not arg in ("avg","mode"):
+            print '* Warning: Invalid argument for signal class \"%s\", expected \"avg\" or \"mode\"\nAvg will be used by default' %(arg)
+            parsed_arguments["signalclass"] = "avg"
+         else:
+            parsed_arguments["signalclass"] = arg
 
    return parsed_arguments
 

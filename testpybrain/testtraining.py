@@ -7,15 +7,28 @@ from os import listdir
 from os.path import isfile,join
 import numpy as np
 import random
+from random import randint as rand_randint
+import math
 
 from utilities import extractCommandParams,createRunFolder,writeAsJson,pickleDumpObject,pickleLoadObject
 import sys
+from collections import Counter
 
 global SIGNAL_LENGTH,SIGNAL_COUNT
 SIGNAL_COUNT = 15
 SIGNAL_COUNT = 1
 
-def getTrainingData(dirname):
+"""
+	@param dirname the directory containing mfcc samples
+	@param testProportion the percentaje of samples used as validation (test)
+	@return the samples of the directory, one set for training and one for validation
+		the format of the returned data for each training and test samples is a tuple
+		of 3 lists, containg the inputs, targets and mfcc files respectively
+"""
+def getData(dirname,testProportion=0.3):
+	training_data = ([],[],[])
+	test_data = ([],[],[])
+
 	target = 0
 	dir_input = []
 	dir_target = []
@@ -23,16 +36,47 @@ def getTrainingData(dirname):
 		target = 1
 	elif dirname.startswith('female'):
 		target = 0
-	for index,file_name in enumerate(listdir(dirname)):
-		data_file = join(dirname,file_name)
-		if (not isfile(data_file)) or ('.mfcc' not in file_name): continue
-		file_data = np.loadtxt(data_file)
-		vs = getVoiceSignal(file_data,SIGNAL_LENGTH,SIGNAL_COUNT)
-		file_target = [target] * len(vs)
-		dir_input.extend(vs)
-		dir_target.extend(file_target)
-	return (dir_input, dir_target)
+	else:
+		print 'Warning, directory is not well labeled. Female label will be used by default'
 
+	dir_files = [join(dirname,file) for file in listdir(dirname)]
+	mfcc_files = [file for file in dir_files if isfile(file) and '.mfcc' in file]
+	random.shuffle(mfcc_files)
+
+	mfcc_num_test_samples = int(math.floor(testProportion*len(mfcc_files)))
+	mfcc_num_training_samples = len(mfcc_files) - mfcc_num_test_samples
+
+	#training signal samples are flattened
+	for ntraining in xrange(0,mfcc_num_training_samples):
+		#get a random mfcc_file and pop it from mfcc file list
+		mfcc_file = mfcc_files.pop(rand_randint(0,len(mfcc_files)-1))
+		file_data = np.loadtxt(mfcc_file)
+		voiceSignal = getVoiceSignal(file_data,SIGNAL_LENGTH,SIGNAL_COUNT)
+
+		#flattening voiceSignal and adding 1 sample per entry to training data
+		targets = [target] * len(voiceSignal)
+		files = [mfcc_file]*len(voiceSignal)
+		training_inputs,training_targets,training_mfccfiles = training_data
+		training_inputs.extend(voiceSignal)
+		training_targets.extend(targets)
+		training_mfccfiles.extend(files)
+
+	#test signal samples are grouped
+	for ntest in xrange(0,mfcc_num_test_samples):
+		#get a random mfcc_file and pop it from mfcc file list
+		mfcc_file = mfcc_files.pop(rand_randint(0,len(mfcc_files)-1))
+		file_data = np.loadtxt(mfcc_file)
+		voiceSignal = getVoiceSignal(file_data,SIGNAL_LENGTH,SIGNAL_COUNT)
+
+
+		test_inputs,test_targets,test_mfccfiles = test_data
+		test_inputs.append(voiceSignal)
+		test_targets.append([target])
+		test_mfccfiles.append([mfcc_file])
+
+	#all mfcc files were distributed in training and test samples
+	assert(mfcc_files == [])
+	return (training_data,test_data)
 
 # Data used
 # Length of each signal
@@ -87,18 +131,38 @@ def splitDatasetWithProportion(fulldataset,testSeparationProportion):
 """
 def combineSamples(sample,othersample):
 	
-	sample_inputs,sample_targets = sample
-	othersample_inputs,othersample_targets = othersample
+	sample_inputs,sample_targets,sample_mfccfiles = sample
+	othersample_inputs,othersample_targets,othersample_mfccfiles = othersample
 
 	# combining both samples
 	combined_inputs = sample_inputs + othersample_inputs
 	combined_targets = sample_targets + othersample_targets
+	combined_mfccfiles = sample_mfccfiles + othersample_mfccfiles
 
 	#zipping inputs and ouputs in order to apply random shuffle
-	combined_samples = zip(combined_inputs, combined_targets)
+	combined_samples = zip(combined_inputs, combined_targets,combined_mfccfiles)
 	random.shuffle(combined_samples)
-	combined_inputs[:], combined_targets[:] = zip(*combined_samples)
-	return (combined_inputs,combined_targets)
+	combined_inputs[:], combined_targets[:],combined_mfccfiles[:] = zip(*combined_samples)
+	return (combined_inputs,combined_targets,combined_mfccfiles)
+
+"""
+	@param dataset the validation (test) dataset
+	@param network the trained network
+	@param signalClass a function for signal classification of a set of samples,
+			can be either modeActivationValue or avgActivationValue
+	@return the percentaje of incorrect classifications
+"""
+def testOnCustomDataset(dataset,network,signalClass):
+	estimated_outputs,targets,mfcc_files = getClassificationOnCustomDataset(dataset,network,signalClass)
+	assert(len(estimated_outputs) == len(targets))
+	assert(len(estimated_outputs) == len(dataset[0]))
+	assert(len(estimated_outputs) == len(mfcc_files))
+
+	#if classification matches adds int(True)=1, 0 otherwise int(False)=0 
+	corrects = sum([int(estimated_outputs[sample]==targets[sample]) for sample,_ in enumerate(estimated_outputs) ])
+	totalAccuracy = corrects/float(len(dataset[0]))
+	totalError = 1-totalAccuracy
+	return totalError
 
 """
 	@param dataset the validation (test) dataset
@@ -106,6 +170,7 @@ def combineSamples(sample,othersample):
 	@return the percentaje of incorrect classifications
 """
 def testOnDataset(dataset,network,verbose=False):
+	assert(isinstance(dataset,ClassificationDataSet))
 	estimated_outputs,targets = getClassificationOnDataset(dataset,network)
 	if verbose:
 		print 'estimated outputs: ', estimated_outputs
@@ -118,6 +183,37 @@ def testOnDataset(dataset,network,verbose=False):
 	totalAccuracy = corrects/float(dataset.getLength())
 	totalError = 1-totalAccuracy
 	return totalError
+
+"""
+	@param dataset the validation (test) dataset
+	@param network the trained network
+	@param signalClass a function for signal classification of a set of samples,
+			can be either modeActivationValue or avgActivationValue
+	@return three lists,the first one containing the estimated outputs,a
+			second one with the real targets, and a third one with the mfcc files
+"""
+def getClassificationOnCustomDataset(dataset,network,signalClass):
+	estimated_outputs = []
+	targets = []
+	mfcc_files = []
+
+	inputs = dataset[0]
+	outputs = dataset[1]
+	files = dataset[2]
+	assert((len(inputs) == len(outputs)) and (len(inputs)==len(files)))
+
+	for samplenum in xrange(0,len(inputs)):
+		_input = inputs[samplenum]
+		target = outputs[samplenum]
+		mfcc_file  = files[samplenum]
+
+		estimated_output = signalClass(_input,network)
+
+		estimated_outputs.append(getGender(estimated_output))
+		targets.append(getGender(target))
+		mfcc_files.append(mfcc_file)
+
+	return estimated_outputs,targets,mfcc_files
 
 """
 	@param dataset the validation (test) dataset
@@ -145,11 +241,13 @@ def getClassificationOnDataset(dataset,network):
 	Classifies unlabeled samples given a sample directory 
 	@param samplesdir the directory containing the unlabeled samples to be classified
 	@param network a trained network
+	@param signalClass a function for signal classification of a set of samples,
+			can be either modeActivationValue or avgActivationValue
 	@return a list containing the classified sample files and
 			a list with the respective classifications for each file and
 			a list with the respective activation values for each classification
 """
-def classifyUnlabeledSamples(samplesdir,network):
+def classifyUnlabeledSamples(samplesdir,network,signalClass):
 	sample_files = []
 	classifications = []
 	activation_values = []
@@ -161,7 +259,7 @@ def classifyUnlabeledSamples(samplesdir,network):
 
 		file_data = np.loadtxt(data_file)
 		vs = getVoiceSignal(file_data,SIGNAL_LENGTH,SIGNAL_COUNT)
-		result = network.activate(vs[0])
+		result = signalClass(vs,network)
 		
 		sample_files.append(file_name)
 		classifications.append(getGender(result))
@@ -169,34 +267,56 @@ def classifyUnlabeledSamples(samplesdir,network):
 
 	return sample_files,classifications,activation_values
 
+"""
+	@param inputs a list of input values
+	@param network the trained network
+	@return the mode of the activation values of each input
+"""
+def modeActivationValue(inputs,network):
+	classes = {'male': 1 ,'female': 0}
+	activationValues = [network.activate(_input) for _input in inputs]
+	classifications = map(getGender,activationValues)
+	classCounter = Counter(classifications)
+	mode = classCounter.most_common(1)[0][0]  # Returns the highest occurring item
+	return classes[mode]
+
+"""
+	@param inputs a list of input values
+	@param network the trained network
+	@return the average of the activation values of each input
+"""
+def avgActivationValue(inputs,network):
+	activationValues = [network.activate(_input) for _input in inputs]
+	avg = sum(activationValues)/float(len(activationValues))
+	return avg
 
 """
 	Main training function
 """
 def trainGenderClassification(learningRate,hiddenNeurons,bias,maxIterations,femaleDataDir,
-							maleDataDir,momentum,signalLength,signalCount,resultsFolder,checkclassdir):
+							maleDataDir,momentum,signalLength,signalCount,signalClass,
+							resultsFolder,checkclassdir):
 
 	"""
 		Prepating Training and Test datasets
 	"""
 	#extracting female and male samples
-	female_samples = getTrainingData(femaleDataDir)
-	male_samples = getTrainingData(maleDataDir)
+	female_training_samples,female_test_samples = getData(femaleDataDir)
+	male_training_samples,male_test_samples = getData(maleDataDir)
 
-	training_inputs,training_targets = combineSamples(female_samples,male_samples)
+	training_inputs,training_targets,training_mfccfiles = combineSamples(female_training_samples,male_training_samples)
+	test_inputs,test_targets,test_mfccfiles = combineSamples(female_test_samples,male_test_samples)
+	test_dataset = (test_inputs,test_targets,test_mfccfiles)
 
 	assert(len(training_inputs) == len(training_targets))
 
 	#building up pybrain training dataset
 	numberofInputs = len(training_inputs[0])
-	testProportion = 0.3 #30% of the dataset samples will be used for validation 
 
-	full_dataset = ClassificationDataSet(numberofInputs, nb_classes=2,class_labels=['Female','Male'])
+	training_dataset = ClassificationDataSet(numberofInputs, nb_classes=2,class_labels=['Female','Male'])
 	for samplenum in xrange(0,len(training_inputs)):
-		full_dataset.addSample(training_inputs[samplenum],[training_targets[samplenum]])
+		training_dataset.addSample(training_inputs[samplenum],[training_targets[samplenum]])
 
-	#Randomly split the full dataset into training and test data sets
-	test_dataset, training_dataset = splitDatasetWithProportion(full_dataset,testProportion) 
 	if hiddenNeurons is None:
 		hiddenNeurons= (training_dataset.indim + training_dataset.outdim)/2
 
@@ -213,6 +333,7 @@ def trainGenderClassification(learningRate,hiddenNeurons,bias,maxIterations,fema
 	print '* maleDataDir    : %s' %(maleDataDir) 
 	print '* signalLength   : %s' %(signalLength)
 	print '* signalCount    : %s' %(signalCount)
+	print '* signalClass    : %s' %(signalClass.__name__)
 	print '* resultsFolder  : %s' %(resultsFolder) 
 	print '* checkclassdir  : %s' %(checkclassdir)
 	print '----------------------------------------------------------------'
@@ -237,6 +358,7 @@ def trainGenderClassification(learningRate,hiddenNeurons,bias,maxIterations,fema
 		'datasetSize':len(training_dataset),
 		'signalLength': signalLength,
 		'signalCount':signalCount,
+		'signalClass':signalClass.__name__,
 		'resultsFolder':resultsFolder,
 		'checkclassdir':checkclassdir
 	}
@@ -254,7 +376,7 @@ def trainGenderClassification(learningRate,hiddenNeurons,bias,maxIterations,fema
 	training_error = epoch_error
 	training_accuracy = 1-training_error
 
-	test_error = testOnDataset(test_dataset,network)
+	test_error = testOnCustomDataset(test_dataset,network,signalClass)
 	test_accuracy = 1-test_error
 
 	print '----------------------------------------------------------------'
@@ -328,6 +450,7 @@ if __name__ == '__main__':
 	DEFAULT_BIAS = True
 	DEFAULT_SIGNAL_LENGTH = 15
 	DEFAULT_SIGNAL_COUNT = 1
+	DEFAULT_SIGNAL_CLASS = avgActivationValue
 	DEFAULT_RESULTS_FOLDER = 'gender-class-runs' #default name of folder where to place the result files
 	DEFAULT_CHECK_CLASS_DIR = None
 	DEFAULT_HIDDEN_NEURONS = None #flag, if none the number is based on the input units
@@ -355,6 +478,14 @@ if __name__ == '__main__':
 	else:
 	  signalCount = DEFAULT_SIGNAL_COUNT
 
+	if "signalclass" in arguments:
+		if arguments["signalclass"] == "mode":
+			signalClass = modeActivationValue
+		elif arguments["signalclass"] == "avg":
+			signalClass = avgActivationValue
+	else:
+		signalClass = DEFAULT_SIGNAL_CLASS
+
 	if "rfolder" in arguments:
 	  resultsFolder = arguments["rfolder"]
 	else:
@@ -370,4 +501,5 @@ if __name__ == '__main__':
 	trainGenderClassification(learningRate=learningRate,hiddenNeurons=hiddenNeurons,bias=bias,
 							maxIterations=maxIterations,femaleDataDir=femaleDataDir,
 							maleDataDir=maleDataDir,momentum=momentum,signalLength=signalLength,
-							signalCount=signalCount,resultsFolder=resultsFolder,checkclassdir=checkclassdir)
+							signalCount=signalCount,signalClass=signalClass,
+							resultsFolder=resultsFolder,checkclassdir=checkclassdir)
