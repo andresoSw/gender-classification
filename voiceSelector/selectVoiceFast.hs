@@ -37,7 +37,7 @@ getMFCC2 input rndStr l = do
   let tempfile = makeW input l
   let name = "./"++rndStr++".wav"
   putWAVEFile name tempfile
-  mfcc <- readProcess "python" ["mfcc_file.py",name] "" >>= return.unwords.lines >>= return.(map read).words
+  mfcc <- readProcess "python" ["./bin/mfcc_file.py",name] "" >>= return.unwords.lines >>= return.(map read).words
   callCommand ("rm "++"./"++rndStr++".wav")
   let respuesta = chunksOf 117 $ myfilter 117 13 mfcc
   return (respuesta)
