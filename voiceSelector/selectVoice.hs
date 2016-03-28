@@ -24,7 +24,7 @@ getMFCC input rndStr (s:sx) = do
   let name = "./"++rndStr++".wav"
   putWAVEFile name tempfile
   mfcc <- readProcess "python" ["mfcc_file.py",name] "" >>= return.unwords.lines >>= return.(map read).words
-  readProcess "python" ["mfcc_file.py",name] ""
+  --readProcess "python" ["mfcc_file.py",name] ""
   down <- getMFCC input rndStr sx
   return (mfcc:down)
   
