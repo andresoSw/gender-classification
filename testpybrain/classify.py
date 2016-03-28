@@ -1,5 +1,5 @@
 from utilities import pickleDumpObject,pickleLoadObject
-from testtraining import getVoiceSignal,getGender
+from testtraining import getVoiceSignal,getGender,modeActivationValue,avgActivationValue
 import sys, getopt
 import os
 from os.path import isfile,join
@@ -42,30 +42,6 @@ def getCommandParams(argv):
         else:
             parsed_arguments["signalclass"] = arg
    return parsed_arguments
-
-
-"""
-	@param inputs a list of input values
-	@param network the trained network
-	@return the mode of the activation values of each input
-"""
-def modeActivationValue(inputs,network):
-	classes = {'male': 1 ,'female': 0}
-	activationValues = [network.activate(_input) for _input in inputs]
-	classifications = map(getGender,activationValues)
-	classCounter = Counter(classifications)
-	mode = classCounter.most_common(1)[0][0]  # Returns the highest occurring item
-	return classes[mode]
-
-"""
-	@param inputs a list of input values
-	@param network the trained network
-	@return the average of the activation values of each input
-"""
-def avgActivationValue(inputs,network):
-	activationValues = [network.activate(_input) for _input in inputs]
-	avg = sum(activationValues)/float(len(activationValues))
-	return avg
 
 def classifyUnlabeledSample(mfccfile,network,signalClass):
 	sample_files = None

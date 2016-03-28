@@ -25,7 +25,7 @@ SIGNAL_COUNT = 1
 		the format of the returned data for each training and test samples is a tuple
 		of 3 lists, containg the inputs, targets and mfcc files respectively
 """
-def getData(dirname,testProportion=0.3):
+def getData(dirname,signalLength,signalCount,testProportion=0.3):
 	training_data = ([],[],[])
 	test_data = ([],[],[])
 
@@ -50,7 +50,7 @@ def getData(dirname,testProportion=0.3):
 		#get a random mfcc_file and pop it from mfcc file list
 		mfcc_file = mfcc_files.pop(rand_randint(0,len(mfcc_files)-1))
 		file_data = np.loadtxt(mfcc_file)
-		voiceSignal = getVoiceSignal(file_data,SIGNAL_LENGTH,SIGNAL_COUNT)
+		voiceSignal = getVoiceSignal(file_data,signalLength,signalCount)
 
 		#flattening voiceSignal and adding 1 sample per entry to training data
 		targets = [target] * len(voiceSignal)
@@ -65,7 +65,7 @@ def getData(dirname,testProportion=0.3):
 		#get a random mfcc_file and pop it from mfcc file list
 		mfcc_file = mfcc_files.pop(rand_randint(0,len(mfcc_files)-1))
 		file_data = np.loadtxt(mfcc_file)
-		voiceSignal = getVoiceSignal(file_data,SIGNAL_LENGTH,SIGNAL_COUNT)
+		voiceSignal = getVoiceSignal(file_data,signalLength,signalCount)
 
 
 		test_inputs,test_targets,test_mfccfiles = test_data
@@ -316,8 +316,8 @@ def trainGenderClassification(learningRate,hiddenNeurons,bias,maxIterations,fema
 		Prepating Training and Test datasets
 	"""
 	#extracting female and male samples
-	female_training_samples,female_test_samples = getData(femaleDataDir)
-	male_training_samples,male_test_samples = getData(maleDataDir)
+	female_training_samples,female_test_samples = getData(femaleDataDir,signalLength,signalCount)
+	male_training_samples,male_test_samples = getData(maleDataDir,signalLength,signalCount)
 
 	training_inputs,training_targets,training_mfccfiles = combineSamples(female_training_samples,male_training_samples)
 	test_inputs,test_targets,test_mfccfiles = combineSamples(female_test_samples,male_test_samples)
