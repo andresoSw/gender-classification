@@ -262,7 +262,7 @@ def getClassificationOnDataset(dataset,network):
 			a list with the respective classifications for each file and
 			a list with the respective activation values for each classification
 """
-def classifyUnlabeledSamples(samplesdir,network,signalClass):
+def classifyUnlabeledSamples(samplesdir,network,signalClass,signalLength,signalCount):
 	sample_files = []
 	classifications = []
 	activation_values = []
@@ -273,7 +273,7 @@ def classifyUnlabeledSamples(samplesdir,network,signalClass):
 			continue
 
 		file_data = np.loadtxt(data_file)
-		vs = getVoiceSignal(file_data,SIGNAL_LENGTH,SIGNAL_COUNT)
+		vs = getVoiceSignal(file_data,signalLength,signalCount)
 		result = signalClass(vs,network)
 		
 		sample_files.append(file_name)
@@ -432,11 +432,11 @@ def trainGenderClassification(learningRate,hiddenNeurons,bias,maxIterations,fema
 		Classification for unlabeled samples
 		"""
 		print '----------------------------------------------------------------'
-		print '**** Classifying samples in %s directory. ' %(checkclassdir)
+		print '**** Classifying samples in \"%s\" directory. ' %(checkclassdir)
 		print '**   Dumping results in  \"%s\" file ' %(classification_out_filename)
 		print '----------------------------------------------------------------'
 		
-		sample_files,classifications,activation_values = classifyUnlabeledSamples(checkclassdir,network)
+		sample_files,classifications,activation_values = classifyUnlabeledSamples(checkclassdir,network,signalClass,signalLength,signalCount)
 		assert((len(sample_files) == len(classifications)) and(len(sample_files)==len(activation_values)))
 
 		with open(classification_out_file, "a") as outfile:

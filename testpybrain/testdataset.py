@@ -8,11 +8,11 @@ def getCommandParams(argv):
                         ' -f <path>\n'\
                         '\tLong  ARGS: classify.py --network <networkfile> ' \
                         ' --maledir <path> --female <path> \n\n'\
-                        '\t[OPTIONAL ARGS] --signalclass <avg or mode>  --rfolder <path>\n'
+                        '\t[OPTIONAL ARGS] --signalclass <avg or mode>  --rfolder <path> --signalcount <count>\n'
 
    
    mandatory_args = [("-n","--network"),("-m","--male"),("-f","--female")]
-   optional_args = [("--signalclass"),("--rfolder")]
+   optional_args = [("--signalclass"),("--signalcount"),("--rfolder")]
 
 
    # checking that all mandatory arguments were provide within the command line
@@ -23,7 +23,7 @@ def getCommandParams(argv):
          sys.exit(2)
   
    try:
-      opts, args = getopt.getopt(argv,'n:m:f:',['network=','maledir=','femaledir=','signalclass=','rfolder='])
+      opts, args = getopt.getopt(argv,'n:m:f:',['network=','maledir=','femaledir=','signalclass=','signalcount=','rfolder='])
    except getopt.GetoptError:
       print how_to_use_message
       sys.exit(2)
@@ -48,12 +48,14 @@ def getCommandParams(argv):
             parsed_arguments["signalclass"] = "avg"
          else:
             parsed_arguments["signalclass"] = arg
+      elif opt == "--signalcount":
+         parsed_arguments["signalcount"] = int(arg)
    return parsed_arguments
 
 """
    Main Function
 """
-def testGenderClassification(network,maleDataDir,femaleDataDir,signalClass,resultsFolder):
+def testGenderClassification(network,maleDataDir,femaleDataDir,signalClass,signalCount,resultsFolder):
    """
       Computing results folder
    """
@@ -61,7 +63,7 @@ def testGenderClassification(network,maleDataDir,femaleDataDir,signalClass,resul
 
    #extracting female and male samples. All samples will be used for testing
    _,female_test_samples = getData(femaleDataDir,network.signalLength,network.signalCount,testProportion=1.0)
-   _,male_test_samples = getData(maleDataDir,network.signalLength,network.signalCount,testProportion=1.0)
+   _,male_test_samples = getData(maleDataDir,network.signalLength,signalCount,testProportion=1.0)
 
    test_inputs,test_targets,test_mfccfiles = combineSamples(female_test_samples,male_test_samples)
    test_dataset = (test_inputs,test_targets,test_mfccfiles)   
@@ -93,6 +95,7 @@ if __name__ == "__main__":
 
    #optional args
    DEFAULT_SIGNAL_CLASS = avgActivationValue
+   DEFAULT_SIGNAL_COUNT = 1
    DEFAULT_RESULTS_FOLDER = 'test-dataset-runs' #default name of folder where to place the result files
    
    if "signalclass" in arguments:
@@ -103,10 +106,15 @@ if __name__ == "__main__":
    else:
       signalClass = DEFAULT_SIGNAL_CLASS
 
+   if "signalcount" in arguments:
+     signalCount = arguments["signalcount"]
+   else:
+     signalCount = DEFAULT_SIGNAL_COUNT
+
    if "rfolder" in arguments:
      resultsFolder = arguments["rfolder"]
    else:
      resultsFolder = DEFAULT_RESULTS_FOLDER
 
    testGenderClassification(network=network,maleDataDir=maleDataDir,femaleDataDir=femaleDataDir,
-                           signalClass=signalClass,resultsFolder=resultsFolder)
+                           signalClass=signalClass,signalCount=signalCount,resultsFolder=resultsFolder)

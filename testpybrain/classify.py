@@ -11,8 +11,11 @@ def getCommandParams(argv):
    how_to_use_message = '$ Usage: \n\tShort ARGS: classify.py -m <mfccfile> ' \
                         ' -n <networkfile> -s <avg or mode>\n'\
                         '\tLong  ARGS: classify.py --mfcc <mfccfile> ' \
-                        ' --network <networkfile> --signalclass <avg or mode>\n\n'
-   mandatory_args = [("-m","--mfcc"),("-n","--network"),("-s","--signalclass")]
+                        ' --network <networkfile> \n\n'\
+						'\t[OPTIONAL ARGS] --signalclass <avg or mode> --signalcount <count>\n'
+
+   mandatory_args = [("-m","--mfcc"),("-n","--network")]
+   optional_args = [("--signalclass"),("--signalcount")]
 
    # checking that all mandatory arguments were provide within the command line
    for shortArg,longArg in mandatory_args:
@@ -22,7 +25,7 @@ def getCommandParams(argv):
          sys.exit(2)
   
    try:
-      opts, args = getopt.getopt(argv,'m:n:s:',['mfcc=','network=','signalclass='])
+      opts, args = getopt.getopt(argv,'m:n:',['mfcc=','network=','signalclass=','signalcount='])
    except getopt.GetoptError:
       print how_to_use_message
       sys.exit(2)
@@ -43,7 +46,7 @@ def getCommandParams(argv):
             parsed_arguments["signalclass"] = arg
    return parsed_arguments
 
-def classifyUnlabeledSample(mfccfile,network,signalClass):
+def classifyUnlabeledSample(mfccfile,network,signalClass,signalLength,signalCount):
 	sample_files = None
 	classifications = None
 	activationValue = None
@@ -52,7 +55,7 @@ def classifyUnlabeledSample(mfccfile,network,signalClass):
 		return None
 
 	file_data = np.loadtxt(mfccfile)
-	vs = getVoiceSignal(file_data,network.signalLength,network.signalCount)
+	vs = getVoiceSignal(file_data,signalLength,signalCount)
 	result = signalClass(vs,network)
 	
 	classification = getGender(result)
@@ -70,12 +73,25 @@ if __name__ == "__main__":
 	arguments = getCommandParams(sys.argv[1:]) 
 	mfccfile = arguments["mfcc"]
 	network_result_file= arguments["network"]
-	signalClass = arguments["signalclass"]
-	if arguments["signalclass"] == "mode":
-			signalClass = modeActivationValue
-	elif arguments["signalclass"] == "avg":
-		signalClass = avgActivationValue
-
 	network = pickleLoadObject(network_result_file)
-	classification,activationValue = classifyUnlabeledSample(mfccfile,network,signalClass)
+
+	#optional args
+	DEFAULT_SIGNAL_CLASS = avgActivationValue
+	DEFAULT_SIGNAL_COUNT = network.signalCount
+
+
+	if "signalclass" in arguments:
+	  if arguments["signalclass"] == "mode":
+	     signalClass = modeActivationValue
+	  elif arguments["signalclass"] == "avg":
+	     signalClass = avgActivationValue
+	else:
+	  signalClass = DEFAULT_SIGNAL_CLASS
+
+	if "signalcount" in arguments:
+		signalCount = arguments["signalcount"]
+	else:
+		signalCount = DEFAULT_SIGNAL_COUNT
+
+	classification,activationValue = classifyUnlabeledSample(mfccfile,network,signalClass,network.signalLength,signalCount)
 	print forceClassification(activationValue)
