@@ -167,6 +167,11 @@ def testOnCustomDataset(dataset,network,signalClass,test_results_file):
 				outfile.write('CORRECT '+info)
 			elif not correct:
 				outfile.write('INCORRECT '+info)
+		outfile.write('================================\n')
+		outfile.write('TOTAL CORRECTS     : %s\n' %(corrects))
+		outfile.write('TOTAL INCORRECTS   : %s\n' %(len(estimated_outputs)-corrects))
+		outfile.write('CORRECT PERCENTAJE : %5.3f%%\n'%((corrects/float(len(dataset[0])))*100))
+
 
 	totalAccuracy = corrects/float(len(dataset[0]))
 	totalError = 1-totalAccuracy
