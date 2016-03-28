@@ -34,6 +34,7 @@ Below there is a list of the mandatory and optional arguments to be provided res
 | Bias                                     |--bias                | true or false        |   true                         |
 | Signal Length                            |--signallength        | int number           |   15                           |
 | Signal Count                             |--signalcount         | int number           |   1                            |
+| Signal Class                             |--signalclass         | avg or mode          |  avg                           |
 | Results Folder                           |--rfolder             | path to folder       |  /gender-classification-runs   |
 | Unlabeled samples Path                   |--checkclassdir       | path to samples      |  None                          |
 
@@ -63,6 +64,9 @@ A description of the content of each file is summarized in the following table
 |       Filename            |             Content Description                           |        Format          |
 |---------------------------|-----------------------------------------------------------|------------------------|
 | input_params.txt          | A summary of the input parameters provided by the user    | json                   |
+| training_dataset.txt      | A list of the mfcc files used for training                | json                   |
+| test_dataset.txt          | A list of the mfcc files used for validating              | json                   |
+| test_results.txt          | A summary of correct and incorrect test classifications   | json                   |
 | classification_out.txt    | The classification for the unlabeled samples, if specified| verbose                |
 | network.pickle            | The serialized neural network                             | pickle                 |
 | results_out.txt           | A summary of the test and training accuracy and errors    | json                   |
