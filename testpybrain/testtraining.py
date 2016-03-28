@@ -38,7 +38,6 @@ def getData(dirname,testProportion=0.3):
 		target = 0
 	else:
 		print 'Warning, directory is not well labeled. Female label will be used by default'
-
 	dir_files = [join(dirname,file) for file in listdir(dirname)]
 	mfcc_files = [file for file in dir_files if isfile(file) and '.mfcc' in file]
 	random.shuffle(mfcc_files)
@@ -71,8 +70,8 @@ def getData(dirname,testProportion=0.3):
 
 		test_inputs,test_targets,test_mfccfiles = test_data
 		test_inputs.append(voiceSignal)
-		test_targets.append([target])
-		test_mfccfiles.append([mfcc_file])
+		test_targets.append(target)
+		test_mfccfiles.append(mfcc_file)
 
 	#all mfcc files were distributed in training and test samples
 	assert(mfcc_files == [])
@@ -152,14 +151,23 @@ def combineSamples(sample,othersample):
 			can be either modeActivationValue or avgActivationValue
 	@return the percentaje of incorrect classifications
 """
-def testOnCustomDataset(dataset,network,signalClass):
-	estimated_outputs,targets,mfcc_files = getClassificationOnCustomDataset(dataset,network,signalClass)
+def testOnCustomDataset(dataset,network,signalClass,test_results_file):
+	estimated_outputs,targets,activation_values,mfcc_files = getClassificationOnCustomDataset(dataset,network,signalClass)
 	assert(len(estimated_outputs) == len(targets))
 	assert(len(estimated_outputs) == len(dataset[0]))
 	assert(len(estimated_outputs) == len(mfcc_files))
 
-	#if classification matches adds int(True)=1, 0 otherwise int(False)=0 
-	corrects = sum([int(estimated_outputs[sample]==targets[sample]) for sample,_ in enumerate(estimated_outputs) ])
+	corrects = 0
+	with open(test_results_file,'a') as outfile:
+		for samplenum in xrange(0,len(estimated_outputs)):
+			correct = estimated_outputs[samplenum]==targets[samplenum]
+			info = '%s Expected Class: \"%s\", Classified as: \"%s\". Activation Value: %s \n' %(mfcc_files[samplenum],targets[samplenum],estimated_outputs[samplenum],activation_values[samplenum])
+			if correct:
+				corrects +=1
+				outfile.write('CORRECT '+info)
+			elif not correct:
+				outfile.write('INCORRECT '+info)
+
 	totalAccuracy = corrects/float(len(dataset[0]))
 	totalError = 1-totalAccuracy
 	return totalError
@@ -195,6 +203,7 @@ def testOnDataset(dataset,network,verbose=False):
 def getClassificationOnCustomDataset(dataset,network,signalClass):
 	estimated_outputs = []
 	targets = []
+	activation_values = []
 	mfcc_files = []
 
 	inputs = dataset[0]
@@ -211,9 +220,10 @@ def getClassificationOnCustomDataset(dataset,network,signalClass):
 
 		estimated_outputs.append(getGender(estimated_output))
 		targets.append(getGender(target))
+		activation_values.append(estimated_output)
 		mfcc_files.append(mfcc_file)
 
-	return estimated_outputs,targets,mfcc_files
+	return estimated_outputs,targets,activation_values,mfcc_files
 
 """
 	@param dataset the validation (test) dataset
@@ -383,7 +393,8 @@ def trainGenderClassification(learningRate,hiddenNeurons,bias,maxIterations,fema
 	training_error = epoch_error
 	training_accuracy = 1-training_error
 
-	test_error = testOnCustomDataset(test_dataset,network,signalClass)
+	test_results_file = os.path.join(run_path,'test_results.txt')
+	test_error = testOnCustomDataset(test_dataset,network,signalClass,test_results_file)
 	test_accuracy = 1-test_error
 
 	print '----------------------------------------------------------------'
