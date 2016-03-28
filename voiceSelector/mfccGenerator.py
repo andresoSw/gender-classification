@@ -7,16 +7,19 @@ import pickle
 import numpy as np
 import sys
 from sys import argv
+import os
 
 
-def createMFCC(wavfile,directory=''):
+def createMFCC(wavfile,directory='',filename=''):
+	if filename=='':
+		filename =wavfile.split('.')[0]+'.mfcc'
 	(rate,sig) = wav.read(wavfile)
 	mfcc_feat = mfcc(sig,rate)
-	if directory=='':
-		filename =wavfile.split('.')[0]+'.mfcc'
-		output_file = join(directory, filename)
-		print output_file
-		np.savetxt(output_file, mfcc_feat)
+	if directory != '':
+		if not os.path.exists(directory):
+			os.makedirs(directory)
+	output_file = join(directory, filename)
+	np.savetxt(output_file, mfcc_feat)
 
 if __name__ == '__main__':
 	wavfile = 'test.wav'
