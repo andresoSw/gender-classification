@@ -364,6 +364,13 @@ def trainGenderClassification(learningRate,hiddenNeurons,bias,maxIterations,fema
 	}
 	writeAsJson(input_params,input_params_file,indent=4)
 
+	training_dataset_file = os.path.join(run_path,'training_dataset.txt')
+	writeAsJson(training_mfccfiles,training_dataset_file,indent=4)
+
+	test_dataset_file = os.path.join(run_path,'test_dataset.txt')
+	test_mfccfiles = test_dataset[2] #test_dataset format: (inputs,outputs,mfccfiles)
+	writeAsJson(test_mfccfiles,test_dataset_file)
+
 	network = buildNetwork( training_dataset.indim,hiddenNeurons, training_dataset.outdim, bias=bias )
 	trainer = BackpropTrainer(network,training_dataset,learningrate = learningRate, momentum=momentum, verbose = False)
 
