@@ -2,11 +2,13 @@
 Gender classification from speech using neural networks
 
 #### Installation
-TODO
+Pyaudio
 
 ```bash
-$ TODO
+$ apt-get install libjack-jackd2-dev portaudio19-dev
+$ apt-get install pyaudio
 ```
+
 #### Execution
 Execute gender classification project by running the following command
 
