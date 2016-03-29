@@ -1,4 +1,4 @@
-from utilities import pickleLoadObject,createRunFolder
+from utilities import pickleLoadObject,createRunFolder,writeAsJson
 from testtraining import getVoiceSignal,getGender,modeActivationValue,avgActivationValue,getData,testOnCustomDataset,combineSamples
 import sys, getopt
 import os
@@ -55,11 +55,34 @@ def getCommandParams(argv):
 """
    Main Function
 """
-def testGenderClassification(network,maleDataDir,femaleDataDir,signalClass,signalCount,resultsFolder):
+def testGenderClassification(network,networkFile,maleDataDir,femaleDataDir,signalClass,signalCount,resultsFolder):
+   print '----------------------------------------------------------------'
+   print '***** Running FeedForward Test with parameters:\n'
+   print '* networkfile    : %s' %(networkFile)
+   print '* signalCount    : %s' %(signalCount)
+   print '* signalClass    : %s' %(signalClass.__name__)
+   print '* maleDataDir    : %s' %(maleDataDir)
+   print '* femaleDataDir  : %s' %(femaleDataDir)
+   print '* resultsFolder  : %s' %(resultsFolder) 
+   print '----------------------------------------------------------------'
+
    """
       Computing results folder
    """
    run_path = createRunFolder(resultsFolder=resultsFolder)
+
+   print '**** Dumping results in directory: \"%s\"' %(run_path)
+   print '----------------------------------------------------------------'
+   input_params_file = os.path.join(run_path,'inputParams.txt')
+   input_params = {
+      'networkfile':networkFile,
+      'signalCount':signalCount,
+      'signalClass':signalClass.__name__,
+      'maleDataDir':maleDataDir,
+      'femaleDataDir':femaleDataDir,
+      'resultsFolder':resultsFolder 
+   }
+   writeAsJson(input_params,input_params_file,indent=4)
 
    #extracting female and male samples. All samples will be used for testing
    _,female_test_samples = getData(femaleDataDir,network.signalLength,network.signalCount,testProportion=1.0)
@@ -116,5 +139,6 @@ if __name__ == "__main__":
    else:
      resultsFolder = DEFAULT_RESULTS_FOLDER
 
-   testGenderClassification(network=network,maleDataDir=maleDataDir,femaleDataDir=femaleDataDir,
+   testGenderClassification(network=network,networkFile=network_result_file,maleDataDir=maleDataDir,femaleDataDir=femaleDataDir,
                            signalClass=signalClass,signalCount=signalCount,resultsFolder=resultsFolder)
+   
