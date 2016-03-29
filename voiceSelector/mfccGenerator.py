@@ -20,6 +20,7 @@ def createMFCC(wavfile,directory='',filename=''):
 			os.makedirs(directory)
 	output_file = join(directory, filename)
 	np.savetxt(output_file, mfcc_feat)
+	return output_file
 
 if __name__ == '__main__':
 	wavfile = 'test.wav'
