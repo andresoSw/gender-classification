@@ -223,8 +223,7 @@ def testOnDataset(dataset,network,verbose=False):
 	#if classification matches adds int(True)=1, 0 otherwise int(False)=0 
 	corrects = sum([int(estimated_outputs[sample]==targets[sample]) for sample,_ in enumerate(estimated_outputs) ])
 	totalAccuracy = corrects/float(dataset.getLength())
-	totalError = 1-totalAccuracy
-	return totalError
+	return totalAccuracy
 
 """
 	@param dataset the validation (test) dataset
@@ -419,12 +418,16 @@ def trainGenderClassification(learningRate,hiddenNeurons,bias,maxIterations,fema
 	trainer = BackpropTrainer(network,training_dataset,learningrate = learningRate, momentum=momentum, verbose = False)
 
 	epoch_error = 0 #keeps track of the last error
+	tr_accuracy = 0
+	tr_error = 0
 	#training with training dataset
 	for epoch in xrange(0,maxIterations):
 		epoch_error = trainer.train()
-		print '%s Train Error: %s Train Accuracy: %s' %(epoch,epoch_error,1-epoch_error)
+		tr_accuracy = testOnDataset(training_dataset,network)
+		tr_error = 1 - tr_accuracy
+		print '%s MSE: %s Train Error: %s Train Accuracy: %s' %(epoch,epoch_error,tr_error,tr_accuracy)
 	
-	training_error = epoch_error
+	training_error = tr_error
 	training_accuracy = 1-training_error
 
 	test_results_file = os.path.join(run_path,'test_results.txt')
