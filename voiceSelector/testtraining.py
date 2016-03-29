@@ -437,6 +437,7 @@ def trainGenderClassification(learningRate,hiddenNeurons,bias,maxIterations,fema
 	print '----------------------------------------------------------------'
 	print '**** Training Results:'
 	print '----------------------------------------------------------------'
+	print '* Training MSE : %s' %(epoch_error)
 	print '* Training Dataset Accuracy: %s' %(training_accuracy)
 	print '* Training Dataset Error: %s' %(training_error)
 	print '* Test Dataset Accuracy: %s' %(test_accuracy)
@@ -450,6 +451,7 @@ def trainGenderClassification(learningRate,hiddenNeurons,bias,maxIterations,fema
 	"""
 	results_out_file = os.path.join(run_path,'results_out.txt')
 	results_out = {
+		"MSE":epoch_error,
 		"training_accuracy":training_accuracy, #w training dataset
 		"training_error":training_error, #w training dataset
 		"test_accuracy":test_accuracy, #w test dataset
