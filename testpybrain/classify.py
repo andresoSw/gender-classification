@@ -38,6 +38,8 @@ def getCommandParams(argv):
          parsed_arguments["mfcc"] = arg
       elif opt in ("-n","--network"):
          parsed_arguments["network"] = arg
+      elif opt == "--signalcount":
+         parsed_arguments["signalcount"] = int(arg)
       elif opt in ("-s","--signalclass"):
       	if not arg in ("avg","mode"):
             print '* Warning: Invalid argument for signal class \"%s\", expected \"avg\" or \"mode\"\nAvg will be used by default' %(arg)
@@ -69,6 +71,13 @@ def forceClassification(activationValue,femaleCut=0.2,maleCut=0.8):
 		return 'male'
 	return 'unknown' 
 
+"""
+	Main function
+"""
+def classifySample(mfccfile,network,signalClass,signalLength,signalCount):
+	classification,activationValue = classifyUnlabeledSample(mfccfile,network,signalClass,signalLength,signalCount)
+	return forceClassification(activationValue)
+
 if __name__ == "__main__":
 	arguments = getCommandParams(sys.argv[1:]) 
 	mfccfile = arguments["mfcc"]
@@ -93,5 +102,4 @@ if __name__ == "__main__":
 	else:
 		signalCount = DEFAULT_SIGNAL_COUNT
 
-	classification,activationValue = classifyUnlabeledSample(mfccfile,network,signalClass,network.signalLength,signalCount)
-	print forceClassification(activationValue)
+	print classifySample(mfccfile,network,signalClass,network.signalLength,signalCount)
