@@ -158,6 +158,10 @@ def testOnCustomDataset(dataset,network,signalClass,test_results_file):
 	assert(len(estimated_outputs) == len(mfcc_files))
 
 	corrects = 0
+	female_corrects = 0
+	female_incorrects = 0
+	male_corrects = 0
+	male_incorrects = 0
 	with open(test_results_file,'a') as outfile:
 		for samplenum in xrange(0,len(estimated_outputs)):
 			correct = estimated_outputs[samplenum]==targets[samplenum]
@@ -167,10 +171,35 @@ def testOnCustomDataset(dataset,network,signalClass,test_results_file):
 				outfile.write('CORRECT '+info)
 			elif not correct:
 				outfile.write('INCORRECT '+info)
+
+			if (targets[samplenum]=='male' and correct):
+				male_corrects += 1
+			elif (targets[samplenum]=='male' and not correct):
+				male_incorrects += 1
+			elif (targets[samplenum]=='female' and correct):
+				female_corrects += 1
+			elif (targets[samplenum]=='female' and not correct):
+				female_incorrects += 1
+		if ((female_corrects + male_incorrects) == 0):
+			recall = 0
+		else:
+			recall = female_corrects / float(female_corrects + male_incorrects)
+
+		if ((female_corrects + female_incorrects) == 0):
+			precision = 0
+		else:
+			precision = female_corrects / float(female_corrects + female_incorrects)
+
 		outfile.write('================================\n')
 		outfile.write('TOTAL CORRECTS     : %s\n' %(corrects))
 		outfile.write('TOTAL INCORRECTS   : %s\n' %(len(estimated_outputs)-corrects))
 		outfile.write('CORRECT PERCENTAJE : %5.3f%%\n'%((corrects/float(len(dataset[0])))*100))
+		outfile.write('MALE CORRECTS      : %s\n' %(male_corrects))
+		outfile.write('MALE INCORRECTS    : %s\n' %(male_incorrects))
+		outfile.write('FEMALE CORRECTS    : %s\n' %(female_corrects))
+		outfile.write('FEMALE INCORRECTS  : %s\n' %(female_incorrects)) 
+		outfile.write('PRECISION          : %s\n' %(precision))
+		outfile.write('RECALL             : %s\n' %(recall))
 
 
 	totalAccuracy = corrects/float(len(dataset[0]))
