@@ -1,22 +1,38 @@
-from pybrain.datasets            import ClassificationDataSet
-from pybrain.tools.shortcuts     import buildNetwork
+from pybrain.datasets import ClassificationDataSet
+from pybrain.tools.shortcuts import buildNetwork
 from pybrain.supervised.trainers import BackpropTrainer
 
 import os
 from os import listdir
-from os.path import isfile,join
+from os.path import isfile, join
 import numpy as np
 import random
 from random import randint as rand_randint
 import math
+#additional shahar imports
+import time
+import webrtcvad
+import wave
+import matplotlib.pyplot as plt
+import Tkinter #necessey for matplotlib.pyplot
+import psutil
+import psutil
+import gc
+from collections import Mapping, Container
+from sys import getsizeof
+#the end of additional imports
 
-from utilities import extractCommandParams,createRunFolder,writeAsJson,pickleDumpObject,pickleLoadObject
+from utilities import extractCommandParams, createRunFolder, writeAsJson, pickleDumpObject, pickleLoadObject
 import sys
 from collections import Counter
 
-global SIGNAL_LENGTH,SIGNAL_COUNT
+from python_speech_features import mfcc
+import scipy.io.wavfile as wav
+
+global SIGNAL_LENGTH, SIGNAL_COUNT
 SIGNAL_COUNT = 15
 SIGNAL_COUNT = 1
+memoryLog=0
 
 """
 	@param dirname the directory containing mfcc samples
@@ -25,80 +41,277 @@ SIGNAL_COUNT = 1
 		the format of the returned data for each training and test samples is a tuple
 		of 3 lists, containg the inputs, targets and mfcc files respectively
 """
-def getData(dirname,signalLength,signalCount,testProportion=0.3):
-	training_data = ([],[],[])
-	test_data = ([],[],[])
 
-	target = 0
-	dir_input = []
-	dir_target = []
-	if dirname.startswith('male'):
-		target = 1
-	elif dirname.startswith('female'):
-		target = 0
-	else:
-		print 'Warning, directory is not well labeled. Female label will be used by default'
-	dir_files = [join(dirname,file) for file in listdir(dirname)]
-	mfcc_files = [file for file in dir_files if isfile(file) and '.mfcc' in file]
-	random.shuffle(mfcc_files)
+def deep_getsizeof(o,name,indentCount):
 
-	mfcc_num_test_samples = int(math.floor(testProportion*len(mfcc_files)))
-	mfcc_num_training_samples = len(mfcc_files) - mfcc_num_test_samples
+    curSize = getsizeof(o);
+    sum = curSize;
 
-	#training signal samples are flattened
-	for ntraining in xrange(0,mfcc_num_training_samples):
-		#get a random mfcc_file and pop it from mfcc file list
-		mfcc_file = mfcc_files.pop(rand_randint(0,len(mfcc_files)-1))
-		file_data = np.loadtxt(mfcc_file)
-		voiceSignal = getVoiceSignal(file_data,signalLength,signalCount)
+    for indent in xrange(0, indentCount):
+        sys.stdout.write('\t')
+    print '%s, %s bytes' % (name, curSize)
 
-		#flattening voiceSignal and adding 1 sample per entry to training data
-		targets = [target] * len(voiceSignal)
-		files = [mfcc_file]*len(voiceSignal)
-		training_inputs,training_targets,training_mfccfiles = training_data
-		training_inputs.extend(voiceSignal)
-		training_targets.extend(targets)
-		training_mfccfiles.extend(files)
+    #TODO: check what happens to array also
+    if(isinstance(o,dict)): #if it is a dictionary
+        items = o.items()
+        items = dict(items)
+    else:                   #get all attributes
+        items = getattr(o, '__dict__', None) #TODO:check out what happens if you do training_dataset.items()
 
-	#test signal samples are grouped
-	for ntest in xrange(0,mfcc_num_test_samples):
-		#get a random mfcc_file and pop it from mfcc file list
-		mfcc_file = mfcc_files.pop(rand_randint(0,len(mfcc_files)-1))
-		file_data = np.loadtxt(mfcc_file)
-		voiceSignal = getVoiceSignal(file_data,signalLength,signalCount)
+    if(items!=None):
+        for attr, value in items.iteritems():
+            attrSize=deep_getsizeof(value,attr,indentCount+1);
+            sum+=attrSize;
+
+    return sum;
+
+def getData(dirname, signalLength, signalCount, signalSampleBuffer,processType, testProportion=0.2):
+    training_data = ([], [], [])
+    test_data = ([], [], [])
+
+    target = 0
+    dir_input = []
+    dir_target = []
+    if dirname.startswith('male'):
+        target = 1
+    elif dirname.startswith('female'):
+        target = 0
+    else:
+        print 'Warning, directory is not well labeled. Female label will be used by default'
+    dir_files = [join(dirname, file) for file in listdir(dirname)]
+    wav_files = [file for file in dir_files if isfile(file) and '.wav' in file]
+    random.shuffle(wav_files)
+
+    wav_num_test_samples = int(math.floor(testProportion * len(wav_files)))
+    wav_num_training_samples = len(wav_files) - wav_num_test_samples
 
 
-		test_inputs,test_targets,test_mfccfiles = test_data
-		test_inputs.append(voiceSignal)
-		test_targets.append(target)
-		test_mfccfiles.append(mfcc_file)
+    # training signal samples are flattened
+    for ntraining in xrange(0, wav_num_training_samples):
+        # get a random mfcc_file and pop it from mfcc file list
+        wav_file = wav_files.pop(rand_randint(0, len(wav_files) - 1))
+        #At this point I have my wav file as pure as it gets
 
-	#all mfcc files were distributed in training and test samples
-	assert(mfcc_files == [])
-	return (training_data,test_data)
+        # #Testing Area to extract VAD starts from here
+        # waveFile = wave.open(wav_file, 'rb')
+        # waveFile.getnchannels();
+        # length = waveFile.getnframes()
+        # waveRead = waveFile.readframes(length)
+        # #To hererc
+        print "Training loading..."+str(round(float(ntraining)/wav_num_training_samples,2)*100)+"% "+str(ntraining)+"/"+str(wav_num_training_samples)+" free -m:"+str((psutil.virtual_memory()[1]) / (1024 * 1024))
+        (rate, sig) = wav.read(wav_file)
+        # mfcc_feat = mfcc(sig, rate) #mfcc_feat is the mfcc format after processing the wav #TODO: remove this lines.. mfcc extraction went inside of getVoiceSignal after vad from sig
+        # file_data = mfcc_feat #for mfcc
+        # file_data = sig #for pure_wav
 
+        # voiceSignal = getVoiceSignal(file_data, signalLength, signalCount)#using wav.read (numphy)
+
+        #Note to self: vadIndication will be shorter then sig since we skip some of the data
+        if(len(sig)<signalLength):
+            print wav_file+" too short to learn"
+            continue
+
+        voiceSignal = getVoiceSignal(sig, rate, signalLength, signalCount,processType)  # using wave.rea
+
+        if(len(voiceSignal)==0):
+            print wav_file + " you are not supposed to arrive here"
+            continue
+        # # Testing Area to plot the waveRead and sig to find the more accurate one to use in VAD starts here
+        # plt.figure(1)
+        # plt.subplot(2,2,1)
+        # plt.plot(sig)
+        # plt.xlabel('Speech signal')
+        #
+        #
+        # plt.subplot(2, 2,3)
+        # plt.plot(vadIndication,'g')
+        #
+        # #Testing area for noise trimming
+        # sigThresholded = sig[np.logical_or(sig>1000,sig<-1000)]
+        # tmp, vadIndicationThresholded = getVoiceSignal(sigThresholded, rate, signalLength, signalCount);
+        # vadIndicationThresholded = map(lambda x: x * max(sigThresholded), vadIndicationThresholded)
+        #
+        # plt.subplot(2, 2, 2)
+        # plt.plot(sigThresholded)
+        # plt.xlabel('Speech signal thresholded')
+        #
+        # plt.subplot(2, 2, 4)
+        # plt.plot(vadIndicationThresholded, 'g')
+        #
+        # #
+        # plt.show()
+        # plt.close()
+        # # To here
+
+        # flattening voiceSignal and adding 1 sample per entry to training data
+        targets = [target] * len(voiceSignal)
+        files = [wav_file] * len(voiceSignal)
+        training_inputs, training_targets, training_mfccfiles = training_data
+        training_inputs.extend(voiceSignal)
+        training_targets.extend(targets)
+        training_mfccfiles.extend(files)
+
+    # test signal samples are grouped
+    for ntest in xrange(0, wav_num_test_samples):
+        # get a random mfcc_file and pop it from mfcc file list
+        print "Test loading..." + str(round(float(ntest)/wav_num_test_samples,2)*100) + "% " + str(ntest) + "/" + str(wav_num_test_samples)
+
+        wav_file = wav_files.pop(rand_randint(0, len(wav_files) - 1))
+
+        (rate, sig) = wav.read(wav_file)
+        # mfcc_feat = mfcc(sig, rate)#MFCC
+
+        # before: file_data = np.loadtxt(mfcc_file)
+        # file_data = mfcc_feat#MFCC
+        # file_data = sig#PURE_WAV
+
+        if (len(sig) < signalLength):
+            print wav_file + " too short to learn"
+            continue
+        
+        voiceSignal = getVoiceSignal(sig, rate, signalLength, signalCount,processType)
+        if (len(voiceSignal) == 0):
+            print wav_file + " you are not supposed to arrive here"
+            continue
+
+        test_inputs, test_targets, test_mfccfiles = test_data
+        test_inputs.append(voiceSignal)
+        test_targets.append(target)
+        test_mfccfiles.append(wav_file)
+
+
+    # all mfcc files were distributed in training and test samples
+    assert (wav_files == [])
+    return (training_data, test_data)
+
+
+# # Old Version -> Used to split the sound by number 'number'(signalCount)
+# # Data used
+# # Length of each signal
+# # number of signals to be used
+# def getVoiceSignal(data, length, number=1):
+#     vad = webrtcvad.Vad()   #FOR_VAD
+#     vad.set_mode(1)         #FOR_VAD
+#     sample_rate = 16000     #FOR_VAD
+#
+#     data_size = len(data)
+#     voice_part = split(data, number)  # What happens here?
+#     voice_signals = []
+#     for voice in voice_part:
+#         voice_data = voice[len(voice) / 2:(len(voice) / 2) + length]
+#         # signal = [c for v in voice_data for c in v] #for MFCC
+#         # voice_signals.append(signal) #for MFCC
+#         voice_signals.append(voice_data) #fror PURE_WAV
+#         valid_RateAndFrame = webrtcvad.valid_rate_and_frame_length(sample_rate,len(voice_data))#TODO: if this has no use-> remove it
+#         isVoice = vad.is_speech(voice_data,sample_rate)
+#
+#     return voice_signals
+
+# #Shahar-> my new method uses all of the audio without overlaping since we want good performance. in the future it is possible to use overlapping
+# # Data used
+# # Length of each signal
+# # number of signals to be used
+# def getVoiceSignal(data, length, number=1):
+#     data_size = len(data)
+#     num_parts = len(data)/length
+#     voice_part = split(data[0:num_parts*length], num_parts)  # What happens here?
+#     voice_signals = []
+#     for voice in voice_part:
+#         # voice_data = voice[len(voice) / 2:(len(voice) / 2) + length]
+#         voice_data=voice
+#         # signal = [c for v in voice_data for c in v] #for MFCC #takes a 2d array(13*15) and create a one-dimensional(195)
+#         # voice_signals.append(signal) #for MFCC
+#
+#         voice_signals.append(voice_data) #fror PURE_WAV
+#     return voice_signals,[]
+
+# #Shahar-> With overlap and VAD
+# # Data used
+# # Length of each signal
+# # number of signals to be used
+# def getVoiceSignal(data, rate, length, signalSampleBuffer, number=1):
+#     vad = webrtcvad.Vad()  # FOR_VAD
+#     # vad.set_mode(1)  # FOR_VAD #FOR HUMANS
+#     vad.set_mode(0)  # FOR_VAD #FOR HYRAX (1 or 2)
+#     # vad.set_mode(3)  # FOR_VAD #FOR BIRDS //TODO: CHANGE_NODE, Change this for birds or humans
+#     sample_rate = 16000  # FOR_VAD
+#
+#     data_size = len(data)
+#     # num_parts = len(data)/length
+#     # voice_part = split(data[0:num_parts*length], num_parts)  # What happens here?
+#     voice_signals = []
+#     vadIndications = []
+#     for index in enumerate(data[0:data_size-length]):
+#         # voice_data = voice[len(voice) / 2:(len(voice) / 2) + length]
+#         if (index[0]%signalSampleBuffer==0):
+#
+#             voice_data=data[index[0]:index[0]+length]
+#
+#             isVoice = vad.is_speech(voice_data,16000)  # TODO:not all signals are 16kHz but the algorithm takes only this. I need to adjust my input to this
+#
+#             vadIndications.append(isVoice)
+#
+#             if isVoice==True:
+#
+#                 #-- MFCC START-- #TODO: YOU NEED THIS TO WORK WITH MFCC!!!
+#                 mfcc_feat = mfcc(voice_data, 16000)
+#                 signal = [c for v in mfcc_feat for c in v] #for MFCC #takes a 2d array(13*15) and create a one-dimensional(195)
+#                 if (len(signal)!=13):
+#                     print "HERE!!!!"
+#                 voice_signals.append(signal) #for MFCC
+#                 #-- MFCC END ---
+#
+#                 # # -- PURE_WAV START-- #TODO: YOU NEED THIS TO WORK WITH PURE WAV!!!
+#                 # voice_signals.append(voice_data)  # for PURE_WAV
+#                 # # -- PURE_WAV END ---
+#
+#     vadIndications.extend([0]*length)
+#
+#     return voice_signals, vadIndications #TODO: remove vadIndication, I no longer need it because I dont use all of the voice_data
+
+#Shahar-> With overlap and no VAD, the assumption is that VAD is part of the pre-process and all of the data that is input to the code is relevant
 # Data used
 # Length of each signal
 # number of signals to be used
-def getVoiceSignal(data,length,number=1):
-	data_size = len(data)
-	voice_part = split(data,number)
-	voice_signals = []
-	for voice in voice_part:
-		voice_data = voice[len(voice)/2:(len(voice)/2)+length]
-		signal = [c for v in  voice_data for c in v]
-		voice_signals.append(signal)
-	return voice_signals
+def getVoiceSignal(data, rate, length, signalSampleBuffer,processType, number=1):
+
+    data_size = len(data)
+    voice_signals = []
+
+    for index in enumerate(data[0:data_size-length+1]):
+        if (index[0]%signalSampleBuffer==0):
+            voice_data=data[index[0]:index[0]+length]
+
+            if (processType=='mfcc'):
+                #-- MFCC START-- #TODO: YOU NEED THIS TO WORK WITH MFCC!!!
+                mfcc_feat = mfcc(voice_data, 16000)
+                signal = [c for v in mfcc_feat for c in v] #for MFCC #takes a 2d array(13*15) and create a one-dimensional(195)
+                # if (len(signal)!=13): #TODO: check why, when the signalLength=480 the len(signal) is 26 and not 13
+                #     print "HERE!!!!"
+                voice_signals.append(signal) #for MFCC
+                #-- MFCC END ---
+            else:
+                if (processType=='wav'):
+
+                    # -- PURE_WAV START-- #TODO: YOU NEED THIS TO WORK WITH PURE WAV!!!
+                    voice_signals.append(voice_data)  # for PURE_WAV
+                    # -- PURE_WAV END ---
+                else:
+                    print 'unknown processType.. ENTER mfcc or wav as parameter'
+
+    return voice_signals
 
 def split(a, n):
     k, m = len(a) / n, len(a) % n
     return (a[i * k + min(i, m):(i + 1) * k + min(i + 1, m)] for i in xrange(n))
 
+
 def getGender(output):
-	if output > 0.45:
-		return 'male'
-	else:
-		return 'female'
+    if output > 0.45:
+        return 'male'
+    else:
+        return 'female'
+
 
 """
 	Randomly splits the full dataset into training and test data sets
@@ -107,20 +320,24 @@ def getGender(output):
 			within the valiadtion (test) dataset
 	@return a tuple containg the test and training datasets respectively
 """
-#Randomly split the full dataset into training and test data sets
-def splitDatasetWithProportion(fulldataset,testSeparationProportion):
-	#Randomly split the full dataset into training test data sets
-	test_dataset_temp, training_dataset_temp = fulldataset.splitWithProportion(testSeparationProportion)
 
-	training_dataset = ClassificationDataSet(fulldataset.indim, nb_classes=2,class_labels=['Female','Male'])
-	for samplenum in xrange(0,training_dataset_temp.getLength()):
-		training_dataset.addSample(training_dataset_temp.getSample(samplenum)[0],training_dataset_temp.getSample(samplenum)[1])
 
-	test_dataset = ClassificationDataSet(fulldataset.indim, nb_classes=2,class_labels=['Female','Male'])
-	for samplenum in xrange(0, test_dataset_temp.getLength()):
-		test_dataset.addSample( test_dataset_temp.getSample(samplenum)[0],test_dataset_temp.getSample(samplenum)[1] )
+# Randomly split the full dataset into training and test data sets
+def splitDatasetWithProportion(fulldataset, testSeparationProportion):
+    # Randomly split the full dataset into training test data sets
+    test_dataset_temp, training_dataset_temp = fulldataset.splitWithProportion(testSeparationProportion)
 
-	return test_dataset,training_dataset
+    training_dataset = ClassificationDataSet(fulldataset.indim, nb_classes=2, class_labels=['Female', 'Male'])
+    for samplenum in xrange(0, training_dataset_temp.getLength()):
+        training_dataset.addSample(training_dataset_temp.getSample(samplenum)[0],
+                                   training_dataset_temp.getSample(samplenum)[1])
+
+    test_dataset = ClassificationDataSet(fulldataset.indim, nb_classes=2, class_labels=['Female', 'Male'])
+    for samplenum in xrange(0, test_dataset_temp.getLength()):
+        test_dataset.addSample(test_dataset_temp.getSample(samplenum)[0], test_dataset_temp.getSample(samplenum)[1])
+
+    return test_dataset, training_dataset
+
 
 """
 	Return the combination of two given samples
@@ -128,21 +345,23 @@ def splitDatasetWithProportion(fulldataset,testSeparationProportion):
 	@param othersample a sample to be combined
 	@return the combined sample
 """
-def combineSamples(sample,othersample):
-	
-	sample_inputs,sample_targets,sample_mfccfiles = sample
-	othersample_inputs,othersample_targets,othersample_mfccfiles = othersample
 
-	# combining both samples
-	combined_inputs = sample_inputs + othersample_inputs
-	combined_targets = sample_targets + othersample_targets
-	combined_mfccfiles = sample_mfccfiles + othersample_mfccfiles
 
-	#zipping inputs and ouputs in order to apply random shuffle
-	combined_samples = zip(combined_inputs, combined_targets,combined_mfccfiles)
-	random.shuffle(combined_samples)
-	combined_inputs[:], combined_targets[:],combined_mfccfiles[:] = zip(*combined_samples)
-	return (combined_inputs,combined_targets,combined_mfccfiles)
+def combineSamples(sample, othersample): #TODO: The use of this method is not understood
+    sample_inputs, sample_targets, sample_mfccfiles = sample
+    othersample_inputs, othersample_targets, othersample_mfccfiles = othersample
+
+    # combining both samples
+    combined_inputs = sample_inputs + othersample_inputs
+    combined_targets = sample_targets + othersample_targets
+    combined_mfccfiles = sample_mfccfiles + othersample_mfccfiles
+
+    # zipping inputs and ouputs in order to apply random shuffle
+    combined_samples = zip(combined_inputs, combined_targets, combined_mfccfiles)
+    random.shuffle(combined_samples)
+    combined_inputs[:], combined_targets[:], combined_mfccfiles[:] = zip(*combined_samples)
+    return (combined_inputs, combined_targets, combined_mfccfiles)
+
 
 """
 	@param dataset the validation (test) dataset
@@ -151,79 +370,122 @@ def combineSamples(sample,othersample):
 			can be either modeActivationValue or avgActivationValue
 	@return the percentaje of incorrect classifications
 """
-def testOnCustomDataset(dataset,network,signalClass,test_results_file):
-	estimated_outputs,targets,activation_values,mfcc_files = getClassificationOnCustomDataset(dataset,network,signalClass)
-	assert(len(estimated_outputs) == len(targets))
-	assert(len(estimated_outputs) == len(dataset[0]))
-	assert(len(estimated_outputs) == len(mfcc_files))
-
-	corrects = 0
-	female_corrects = 0
-	female_incorrects = 0
-	male_corrects = 0
-	male_incorrects = 0
-	with open(test_results_file,'a') as outfile:
-		for samplenum in xrange(0,len(estimated_outputs)):
-			correct = estimated_outputs[samplenum]==targets[samplenum]
-			info = '%s Expected Class: \"%s\", Classified as: \"%s\". Activation Value: %s \n' %(mfcc_files[samplenum],targets[samplenum],estimated_outputs[samplenum],activation_values[samplenum])
-			if correct:
-				corrects +=1
-				outfile.write('CORRECT '+info)
-			elif not correct:
-				outfile.write('INCORRECT '+info)
-
-			if (targets[samplenum]=='male' and correct):
-				male_corrects += 1
-			elif (targets[samplenum]=='male' and not correct):
-				male_incorrects += 1
-			elif (targets[samplenum]=='female' and correct):
-				female_corrects += 1
-			elif (targets[samplenum]=='female' and not correct):
-				female_incorrects += 1
-		if ((female_corrects + male_incorrects) == 0):
-			recall = 0
-		else:
-			recall = female_corrects / float(female_corrects + male_incorrects)
-
-		if ((female_corrects + female_incorrects) == 0):
-			precision = 0
-		else:
-			precision = female_corrects / float(female_corrects + female_incorrects)
-
-		outfile.write('================================\n')
-		outfile.write('TOTAL CORRECTS     : %s\n' %(corrects))
-		outfile.write('TOTAL INCORRECTS   : %s\n' %(len(estimated_outputs)-corrects))
-		outfile.write('CORRECT PERCENTAJE : %5.3f%%\n'%((corrects/float(len(dataset[0])))*100))
-		outfile.write('MALE CORRECTS      : %s\n' %(male_corrects))
-		outfile.write('MALE INCORRECTS    : %s\n' %(male_incorrects))
-		outfile.write('FEMALE CORRECTS    : %s\n' %(female_corrects))
-		outfile.write('FEMALE INCORRECTS  : %s\n' %(female_incorrects)) 
-		outfile.write('PRECISION          : %s\n' %(precision))
-		outfile.write('RECALL             : %s\n' %(recall))
 
 
-	totalAccuracy = corrects/float(len(dataset[0]))
-	totalError = 1-totalAccuracy
-	return totalError
+def testOnCustomDataset(dataset, network, signalClass, test_results_file):
+    estimated_outputs, targets, activation_values, mfcc_files = getClassificationOnCustomDataset(dataset, network,
+                                                                                                 signalClass)
+    assert (len(estimated_outputs) == len(targets))
+    assert (len(estimated_outputs) == len(dataset[0]))
+    assert (len(estimated_outputs) == len(mfcc_files))
+
+    corrects = 0
+    female_corrects = 0
+    female_incorrects = 0
+    male_corrects = 0
+    male_incorrects = 0
+    with open(test_results_file, 'a') as outfile:
+        for samplenum in xrange(0, len(estimated_outputs)):
+            correct = estimated_outputs[samplenum] == targets[samplenum]
+            info = '%s Expected Class: \"%s\", Classified as: \"%s\". Activation Value: %s \n' % (
+            mfcc_files[samplenum], targets[samplenum], estimated_outputs[samplenum], activation_values[samplenum])
+            if correct:
+                corrects += 1
+                outfile.write('CORRECT ' + info)
+            elif not correct:
+                outfile.write('INCORRECT ' + info)
+
+            if (targets[samplenum] == 'male' and correct):
+                male_corrects += 1
+            elif (targets[samplenum] == 'male' and not correct):
+                male_incorrects += 1
+            elif (targets[samplenum] == 'female' and correct):
+                female_corrects += 1
+            elif (targets[samplenum] == 'female' and not correct):
+                female_incorrects += 1
+
+
+        # PRECISION
+        if ((female_corrects + male_incorrects) == 0):
+            female_precision = 0
+        else:
+            female_precision = female_corrects / float(female_corrects + male_incorrects)
+
+        if ((male_corrects + female_incorrects) == 0):
+            male_precision = 0
+        else:
+            male_precision = male_corrects / float(male_corrects + female_incorrects)
+
+        # RECALL
+        if ((female_corrects + female_incorrects) == 0):
+            female_recall = 0
+        else:
+            female_recall = female_corrects / float(female_corrects + female_incorrects)
+
+        if ((male_corrects + male_incorrects) == 0):
+            male_recall = 0
+        else:
+            male_recall = male_corrects / float(male_corrects + male_incorrects)
+
+        outfile.write('================================\n')
+        outfile.write('TOTAL CORRECTS     : %s\n' % (corrects))
+        outfile.write('TOTAL INCORRECTS   : %s\n' % (len(estimated_outputs) - corrects))
+        outfile.write('CORRECT PERCENTAJE : %5.3f%%\n' % ((corrects / float(len(dataset[0]))) * 100))
+        outfile.write('MALE CORRECTS      : %s\n' % (male_corrects))
+        outfile.write('MALE INCORRECTS    : %s\n' % (male_incorrects))
+        outfile.write('FEMALE CORRECTS    : %s\n' % (female_corrects))
+        outfile.write('FEMALE INCORRECTS  : %s\n' % (female_incorrects))
+        outfile.write('PRECISION FEMALE   : %s\n' % (female_precision))
+        outfile.write('RECALL FEMALE      : %s\n' % (female_recall))
+        outfile.write('PRECISION MALE     : %s\n' % (male_precision))
+        outfile.write('RECALL MALE        : %s\n' % (male_recall))
+
+        print '----------------------------------------------------------------'
+        print '**** Test Results:'
+        print '----------------------------------------------------------------'
+        print '* MALE CORRECTS PERCENTAJE: %s' % (male_corrects/float(male_corrects+male_incorrects))
+        print '* FEMALE CORRECTS PERCENTAJE: %s' % (female_corrects/float(female_corrects + female_incorrects))
+
+        print 'PRECISION - #relevant_found/#found [How many selected items are relevant?]'
+        print ('PRECISION FEMALE   : %s' % (female_precision))
+        print ('PRECISION MALE     : %s' % (male_precision))
+        print '\nRECALL - #relevant_found/#relevant [Hoy many relevant items are selected?]'
+        print ('RECALL FEMALE      : %s' % (female_recall))
+        print ('RECALL MALE        : %s' % (male_recall))
+
+    totalAccuracy = corrects / float(len(dataset[0]))
+    totalError = 1 - totalAccuracy
+    return totalError
+
 
 """
 	@param dataset the validation (test) dataset
 	@param network the trained network
 	@return the percentaje of incorrect classifications
 """
-def testOnDataset(dataset,network,verbose=False):
-	assert(isinstance(dataset,ClassificationDataSet))
-	estimated_outputs,targets = getClassificationOnDataset(dataset,network)
-	if verbose:
-		print 'estimated outputs: ', estimated_outputs
-		print 'targets: ', targets
-	assert(len(estimated_outputs) == len(targets))
-	assert(len(estimated_outputs) == dataset.getLength())
 
-	#if classification matches adds int(True)=1, 0 otherwise int(False)=0 
-	corrects = sum([int(estimated_outputs[sample]==targets[sample]) for sample,_ in enumerate(estimated_outputs) ])
-	totalAccuracy = corrects/float(dataset.getLength())
-	return totalAccuracy
+
+def testOnDataset(dataset, network, verbose=False):
+    assert (isinstance(dataset, ClassificationDataSet))
+    estimated_outputs, targets = getClassificationOnDataset(dataset, network)
+    if verbose:
+        print 'estimated outputs: ', estimated_outputs
+        print 'targets: ', targets
+    assert (len(estimated_outputs) == len(targets))
+    assert (len(estimated_outputs) == dataset.getLength())
+
+    # if classification matches adds int(True)=1, 0 otherwise int(False)=0
+    corrects_male = sum([int((estimated_outputs[sample] == targets[sample] and targets[sample]=='male')) for sample, _ in enumerate(estimated_outputs)])
+    corrects_female = sum([int((estimated_outputs[sample] == targets[sample] and targets[sample]=='female')) for sample, _ in enumerate(estimated_outputs)])
+    totalMale = sum([int(targets[sample] == 'male') for sample, _ in enumerate(estimated_outputs)])
+    totalMale = sum([int(targets[sample] == 'male') for sample, _ in enumerate(estimated_outputs)])
+    totalFemale = sum([int(targets[sample] == 'female') for sample, _ in enumerate(estimated_outputs)])
+
+    totalAccuracyMales = corrects_male / float(totalMale)
+    totalAccuracyFemales = corrects_female / float(totalFemale)
+
+    return totalAccuracyMales, totalAccuracyFemales
+
 
 """
 	@param dataset the validation (test) dataset
@@ -233,30 +495,33 @@ def testOnDataset(dataset,network,verbose=False):
 	@return three lists,the first one containing the estimated outputs,a
 			second one with the real targets, and a third one with the mfcc files
 """
-def getClassificationOnCustomDataset(dataset,network,signalClass):
-	estimated_outputs = []
-	targets = []
-	activation_values = []
-	mfcc_files = []
 
-	inputs = dataset[0]
-	outputs = dataset[1]
-	files = dataset[2]
-	assert((len(inputs) == len(outputs)) and (len(inputs)==len(files)))
 
-	for samplenum in xrange(0,len(inputs)):
-		_input = inputs[samplenum]
-		target = outputs[samplenum]
-		mfcc_file  = files[samplenum]
+def getClassificationOnCustomDataset(dataset, network, signalClass):
+    estimated_outputs = []
+    targets = []
+    activation_values = []
+    mfcc_files = []
 
-		estimated_output = signalClass(_input,network)
+    inputs = dataset[0]
+    outputs = dataset[1]
+    files = dataset[2]
+    assert ((len(inputs) == len(outputs)) and (len(inputs) == len(files)))
 
-		estimated_outputs.append(getGender(estimated_output))
-		targets.append(getGender(target))
-		activation_values.append(estimated_output)
-		mfcc_files.append(mfcc_file)
+    for samplenum in xrange(0, len(inputs)):
+        _input = inputs[samplenum]
+        target = outputs[samplenum]
+        mfcc_file = files[samplenum]
 
-	return estimated_outputs,targets,activation_values,mfcc_files
+        estimated_output = signalClass(_input, network)
+
+        estimated_outputs.append(getGender(estimated_output))
+        targets.append(getGender(target))
+        activation_values.append(estimated_output)
+        mfcc_files.append(mfcc_file)
+
+    return estimated_outputs, targets, activation_values, mfcc_files
+
 
 """
 	@param dataset the validation (test) dataset
@@ -264,20 +529,22 @@ def getClassificationOnCustomDataset(dataset,network,signalClass):
 	@return two lists,the first one containing the estimated outputs and a
 			second one with the real targets
 """
-def getClassificationOnDataset(dataset,network):
-	estimated_outputs = []
-	targets = []
 
-	for samplenum in xrange(0,dataset.getLength()):
-		_input = dataset.getSample(samplenum)[0]
-		target = dataset.getSample(samplenum)[1]
 
-		estimated_output = network.activate(_input)
+def getClassificationOnDataset(dataset, network):
+    estimated_outputs = []
+    targets = []
 
-		estimated_outputs.append(getGender(estimated_output))
-		targets.append(getGender(target))
+    for samplenum in xrange(0, dataset.getLength()):
+        _input = dataset.getSample(samplenum)[0]
+        target = dataset.getSample(samplenum)[1]
 
-	return estimated_outputs,targets
+        estimated_output = network.activate(_input)
+
+        estimated_outputs.append(getGender(estimated_output))
+        targets.append(getGender(target))
+
+    return estimated_outputs, targets
 
 
 """
@@ -290,273 +557,405 @@ def getClassificationOnDataset(dataset,network):
 			a list with the respective classifications for each file and
 			a list with the respective activation values for each classification
 """
-def classifyUnlabeledSamples(samplesdir,network,signalClass,signalLength,signalCount):
-	sample_files = []
-	classifications = []
-	activation_values = []
 
-	for index,file_name in enumerate(listdir(samplesdir)):
-		data_file = join(samplesdir,file_name)
-		if (not isfile(data_file)) or ('.mfcc' not in file_name): 
-			continue
 
-		file_data = np.loadtxt(data_file)
-		vs = getVoiceSignal(file_data,signalLength,signalCount)
-		result = signalClass(vs,network)
-		
-		sample_files.append(file_name)
-		classifications.append(getGender(result))
-		activation_values.append(result)
+def classifyUnlabeledSamples(samplesdir, network, signalClass, signalLength, signalCount):
+    sample_files = []
+    classifications = []
+    activation_values = []
 
-	return sample_files,classifications,activation_values
+    for index, file_name in enumerate(listdir(samplesdir)):
+        data_file = join(samplesdir, file_name)
+        if (not isfile(data_file)) or ('.mfcc' not in file_name):
+            continue
+
+        file_data = np.loadtxt(data_file)
+        vs = getVoiceSignal(file_data, signalLength, signalCount)
+        result = signalClass(vs, network)
+
+        sample_files.append(file_name)
+        classifications.append(getGender(result))
+        activation_values.append(result)
+
+    return sample_files, classifications, activation_values
 
 """
 	@param inputs a list of input values
 	@param network the trained network
 	@return the mode of the activation values of each input
 """
-def modeActivationValue(inputs,network):
-	classes = {'male': 1 ,'female': 0}
-	activationValues = [network.activate(_input) for _input in inputs]
-	classifications = map(getGender,activationValues)
-	classCounter = Counter(classifications)
-	mode = classCounter.most_common(1)[0][0]  # Returns the highest occurring item
-	return classes[mode]
+
+
+def modeActivationValue(inputs, network):
+    classes = {'male': 1, 'female': 0}
+    activationValues = [network.activate(_input) for _input in inputs]
+    classifications = map(getGender, activationValues)
+    classCounter = Counter(classifications)
+    mode = classCounter.most_common(1)[0][0]  # Returns the highest occurring item
+    return classes[mode]
+
 
 """
 	@param inputs a list of input values
 	@param network the trained network
 	@return the average of the activation values of each input
 """
-def avgActivationValue(inputs,network):
-	activationValues = [network.activate(_input) for _input in inputs]
-	avg = sum(activationValues)/float(len(activationValues))
-	return avg
+
+
+def avgActivationValue(inputs, network):
+    activationValues = [network.activate(_input) for _input in inputs]
+    avg = sum(activationValues) / float(len(activationValues))
+    return avg
+
 
 """
 	Main training function
 """
-def trainGenderClassification(learningRate,hiddenNeurons,bias,maxIterations,femaleDataDir,
-							maleDataDir,momentum,signalLength,signalCount,signalClass,
-							resultsFolder,checkclassdir):
 
-	"""
+def startMemoryCounter():
+    global memoryLog
+    memoryLog = (psutil.virtual_memory()[1]) / (1024 * 1024)  # Available memory in MB
+
+def printMemoryDiffFromNow(messageToPrint):
+    global memoryLog
+    availableMem = (psutil.virtual_memory()[1]) / (1024 * 1024)  # Available memory in MB
+    print '%s \tMB used: %s'%(memoryLog-availableMem,messageToPrint)
+    memoryLog=0
+
+def trainGenderClassification(learningRate, hiddenNeurons, bias, maxIterations, femaleDataDir,
+                              maleDataDir, momentum, signalLength, signalCount, signalClass,
+                              resultsFolder, checkclassdir, signalSampleBuffer,processType):
+    """
 		Prepating Training and Test datasets
 	"""
-	#extracting female and male samples
-	female_training_samples,female_test_samples = getData(femaleDataDir,signalLength,signalCount)
-	male_training_samples,male_test_samples = getData(maleDataDir,signalLength,signalCount)
+    # extracting female and male samples
+    startMemoryCounter()
+    female_training_samples, female_test_samples = getData(femaleDataDir, signalLength, signalSampleBuffer, signalCount,processType)
+    print '* female training samples: %s' % (len(female_training_samples[0]))
+    print '* female test samples: %s' % (len(female_test_samples[0]))
+    printMemoryDiffFromNow("getData(femaleDataDir,...)")
 
-	training_inputs,training_targets,training_mfccfiles = combineSamples(female_training_samples,male_training_samples)
-	test_inputs,test_targets,test_mfccfiles = combineSamples(female_test_samples,male_test_samples)
-	test_dataset = (test_inputs,test_targets,test_mfccfiles)
+    startMemoryCounter()
+    male_training_samples, male_test_samples = getData(maleDataDir, signalLength, signalSampleBuffer, signalCount,processType)
+    print '* male training samples: %s' % (len(male_training_samples[0]))
+    print '* male test samples: %s' % (len(male_test_samples[0]))
+    printMemoryDiffFromNow("getData(maleDataDir,...)")
+    print "* "
 
-	assert(len(training_inputs) == len(training_targets))
+    startMemoryCounter()
+    training_inputs, training_targets, training_mfccfiles = combineSamples(female_training_samples,
+                                                                           male_training_samples)
+    printMemoryDiffFromNow("combineSamples(female_training_samples,male_training_samples)")
 
-	#building up pybrain training dataset
-	numberofInputs = len(training_inputs[0])
+    startMemoryCounter()
+    test_inputs, test_targets, test_mfccfiles = combineSamples(female_test_samples, male_test_samples)
+    printMemoryDiffFromNow("combineSamples(female_test_samples, male_test_samples)")
 
-	training_dataset = ClassificationDataSet(numberofInputs, nb_classes=2,class_labels=['Female','Male'])
-	for samplenum in xrange(0,len(training_inputs)):
-		training_dataset.addSample(training_inputs[samplenum],[training_targets[samplenum]])
+    test_dataset = (test_inputs, test_targets, test_mfccfiles)
 
-	if hiddenNeurons is None:
-		hiddenNeurons= (training_dataset.indim + training_dataset.outdim)/2
+    assert (len(training_inputs) == len(training_targets))
 
-	print '----------------------------------------------------------------'
-	print '***** Running Backpropagation Trainer with parameters:\n'
-	print '* learningRate   : %s' %(learningRate)
-	print '* inputs         : %s' %(training_dataset.indim)
-	print '* outputs        : %s' %(training_dataset.outdim)
-	print '* hiddenNeurons  : %s' %(hiddenNeurons)
-	print '* bias           : %s' %(bias)
-	print '* momentum       : %s' %(momentum)
-	print '* maxIterations  : %s' %(maxIterations)
-	print '* femaleDataDir  : %s' %(femaleDataDir)
-	print '* maleDataDir    : %s' %(maleDataDir) 
-	print '* signalLength   : %s' %(signalLength)
-	print '* signalCount    : %s' %(signalCount)
-	print '* signalClass    : %s' %(signalClass.__name__)
-	print '* resultsFolder  : %s' %(resultsFolder) 
-	print '* checkclassdir  : %s' %(checkclassdir)
-	print '----------------------------------------------------------------'
-	"""
+    print '------'
+    print '\tlen(training_inputs): ', len(training_inputs)
+    print '\tlen(test_inputs): ', len(test_inputs)
+    print '------'
+
+    # building up pybrain training dataset
+    numberofInputs = len(training_inputs[0])
+
+    startMemoryCounter()
+    training_dataset = ClassificationDataSet(numberofInputs, nb_classes=2, class_labels=['Female', 'Male'])
+    printMemoryDiffFromNow("ClassificationDataSet(numberofInputs, nb_classes=2, class_labels=['Female', 'Male'])")
+
+    startMemoryCounter()
+    for samplenum in xrange(0, len(training_inputs)):
+
+        training_dataset.addSample(training_inputs[samplenum], [training_targets[samplenum]]) #TODO: this is the core problem for memory lost, i dont want to lose addSample and I'm not sure this adds a link instead of an instance --> answer I belive: it adds an instance
+
+        if (samplenum%50000==0):
+            printMemoryDiffFromNow("training_dataset.addSample... sampleNum: "+str(samplenum))
+            startMemoryCounter()
+
+    #
+    # print ''
+    # deep_getsizeof(training_dataset,'training_dataset',0)
+    #
+
+    printMemoryDiffFromNow("training_dataset.addSample... last sampleNum")
+
+    startMemoryCounter()
+    # end of release memory area - shahar
+    # availableMem = (psutil.virtual_memory()[1]) / (1024 * 1024)  # Available memory in MB
+    # print 'sampleNum: %s, %s MB memory available AFTER releasing: ' % (samplenum, availableMem)
+
+    # if samplenum<3:
+        #     print 'training_inputs[samplenum]' , training_inputs[samplenum]
+        #     print '[training_targets[samplenum]]',[training_targets[samplenum]]
+        #     print 'sampleNum: %s, training_dataset: %s'% (samplenum,training_dataset)
+
+    if hiddenNeurons is None:
+        hiddenNeurons = (training_dataset.indim + training_dataset.outdim) / 2
+
+    # print '----------------------------------------------------------------'
+    # print '***** Running Backpropagation Trainer with parameters:\n'
+    # print '* learningRate   : %s' % (learningRate)
+    # print '* inputs         : %s' % (training_dataset.indim)
+    # print '* outputs        : %s' % (training_dataset.outdim)
+    # print '* hiddenNeurons  : %s' % (hiddenNeurons)
+    # print '* bias           : %s' % (bias)
+    # print '* momentum       : %s' % (momentum)
+    # print '* maxIterations  : %s' % (maxIterations)
+    # print '* femaleDataDir  : %s' % (femaleDataDir)
+    # print '* maleDataDir    : %s' % (maleDataDir)
+    # print '* signalLength   : %s' % (signalLength)
+    # print '* signalCount    : %s' % (signalCount)
+    # print '* signalClass    : %s' % (signalClass.__name__)
+    # print '* resultsFolder  : %s' % (resultsFolder)
+    # print '* checkclassdir  : %s' % (checkclassdir)
+    # print '----------------------------------------------------------------'
+    """
 		Computing results folder
 	"""
-	run_path = createRunFolder(resultsFolder=resultsFolder)
+    run_path = createRunFolder(resultsFolder=resultsFolder)
 
-	print '**** Dumping results in directory: \"%s\"' %(run_path)
-	print '----------------------------------------------------------------'
-	input_params_file = os.path.join(run_path,'inputParams.txt')
-	input_params = {
-		'learningRate': learningRate,
-		'inputs':training_dataset.indim,
-		'outputs':training_dataset.outdim,
-		'hiddenNeurons': hiddenNeurons,
-		'bias': bias,
-		'momentum': momentum,
-		'maxIterations': maxIterations,
-		'femaleDataDir': femaleDataDir,
-		'maleDataDir': maleDataDir,
-		'datasetSize':len(training_dataset),
-		'signalLength': signalLength,
-		'signalCount':signalCount,
-		'signalClass':signalClass.__name__,
-		'resultsFolder':resultsFolder,
-		'checkclassdir':checkclassdir
-	}
-	writeAsJson(input_params,input_params_file,indent=4)
+    # print '**** Dumping results in directory: \"%s\"' % (run_path)
+    # print '----------------------------------------------------------------'
+    input_params_file = os.path.join(run_path, 'inputParams.txt')
+    input_params = {
+        'learningRate': learningRate,
+        'inputs': training_dataset.indim,
+        'outputs': training_dataset.outdim,
+        'hiddenNeurons': hiddenNeurons,
+        'bias': bias,
+        'momentum': momentum,
+        'maxIterations': maxIterations,
+        'femaleDataDir': femaleDataDir,
+        'maleDataDir': maleDataDir,
+        'datasetSize': len(training_dataset),
+        'signalLength': signalLength,
+        'signalCount': signalCount,
+        'signalClass': signalClass.__name__,
+        'resultsFolder': resultsFolder,
+        'checkclassdir': checkclassdir
+    }
+    writeAsJson(input_params, input_params_file, indent=4)
 
-	training_dataset_file = os.path.join(run_path,'training_dataset.txt')
-	writeAsJson(training_mfccfiles,training_dataset_file,indent=4)
+    training_dataset_file = os.path.join(run_path, 'training_dataset.txt')
+    writeAsJson(training_mfccfiles, training_dataset_file, indent=4)
 
-	test_dataset_file = os.path.join(run_path,'test_dataset.txt')
-	test_mfccfiles = test_dataset[2] #test_dataset format: (inputs,outputs,mfccfiles)
-	writeAsJson(test_mfccfiles,test_dataset_file)
+    test_dataset_file = os.path.join(run_path, 'test_dataset.txt')
+    test_mfccfiles = test_dataset[2]  # test_dataset format: (inputs,outputs,mfccfiles)
+    writeAsJson(test_mfccfiles, test_dataset_file)
 
-	network = buildNetwork( training_dataset.indim,hiddenNeurons, training_dataset.outdim, bias=bias )
-	trainer = BackpropTrainer(network,training_dataset,learningrate = learningRate, momentum=momentum, verbose = False)
+    #when debugging, stop here to view training_dataset.indim parameter
+    startMemoryCounter()
+    network = buildNetwork(training_dataset.indim, hiddenNeurons, hiddenNeurons/2, hiddenNeurons/4, training_dataset.outdim, bias=bias)
+    printMemoryDiffFromNow("network = buildNetwork(...)")
 
-	epoch_error = 0 #keeps track of the last error
-	tr_accuracy = 0
-	tr_error = 0
-	#training with training dataset
-	for epoch in xrange(0,maxIterations):
-		epoch_error = trainer.train()
-		tr_accuracy = testOnDataset(training_dataset,network)
-		tr_error = 1 - tr_accuracy
-		print '%s MSE: %s Train Error: %s Train Accuracy: %s' %(epoch,epoch_error,tr_error,tr_accuracy)
-	
-	training_error = tr_error
-	training_accuracy = 1-training_error
+    startMemoryCounter()
+    trainer = BackpropTrainer(network, training_dataset, learningrate=learningRate, momentum=momentum, verbose=False)
+    printMemoryDiffFromNow("trainer = BackpropTrainer(...)")
 
-	test_results_file = os.path.join(run_path,'test_results.txt')
-	test_error = testOnCustomDataset(test_dataset,network,signalClass,test_results_file)
-	test_accuracy = 1-test_error
+    epoch_error = 0  # keeps track of the last error
+    tr_accuracy_male = 0
+    tr_accuracy_female = 0
+    tr_error = 0
+    total_time = 0
+    # training with training dataset
+    startMemoryCounter()
+    for epoch in xrange(0, maxIterations):
+        print 'started train'
+        timestampBeforeTrain = time.time();
+        epoch_error = trainer.train()
+        timestampAfterTrain = time.time();
+        total_time = total_time + (timestampAfterTrain-timestampBeforeTrain)
+        tr_accuracy_male, tr_accuracy_female = testOnDataset(training_dataset, network)
+        tr_error_male = 1 - tr_accuracy_male
+        tr_error_female = 1 - tr_accuracy_female
 
-	print '----------------------------------------------------------------'
-	print '**** Training Results:'
-	print '----------------------------------------------------------------'
-	print '* Training MSE : %s' %(epoch_error)
-	print '* Training Dataset Accuracy: %s' %(training_accuracy)
-	print '* Training Dataset Error: %s' %(training_error)
-	print '* Test Dataset Accuracy: %s' %(test_accuracy)
-	print '* Test Dataset Error %s' %(test_error)
-	print '----------------------------------------------------------------'
-	print 'Dumping Results in \"results_out.txt\" file '
-	print '----------------------------------------------------------------'
-	
-	"""
+        # print '%s MSE: %s Train Error: %s Train Accuracy: %s Performance: %s Memory available: %s' % (epoch, epoch_error, tr_error, tr_accuracy, timestampAfterTrain-timestampBeforeTrain,availableMem)
+        printMemoryDiffFromNow("train iteration "+str(epoch)+ " Performance: "+str(timestampAfterTrain-timestampBeforeTrain))
+        startMemoryCounter()
+
+
+    # pickleDumpObject(trainer,"train2.p");
+    #
+    # deserializedTrainer = pickleLoadObject("train2.p");
+
+    training_error_male = tr_error_male
+    training_accuracy_male = 1 - training_error_male
+    training_error_female = tr_error_female
+    training_accuracy_female = 1 - training_error_female
+
+    avg_time_per_train = total_time/maxIterations
+
+    test_results_file = os.path.join(run_path, 'test_results.txt')
+    test_error = testOnCustomDataset(test_dataset, network, signalClass, test_results_file)
+    test_accuracy = 1 - test_error
+
+    print '----------------------------------------------------------------'
+    print '**** Training Results:'
+    print '----------------------------------------------------------------'
+    print '* Training MSE : %s' % (epoch_error)
+    print '* Training Dataset Male Accuracy: %s' % (training_accuracy_male)
+    print '* Training Dataset Male Error: %s' % (training_error_male)
+    print '* Training Dataset Female Accuracy: %s' % (training_accuracy_female)
+    print '* Training Dataset Female Error: %s' % (training_error_female)
+    print '* Test Dataset Accuracy: %s' % (test_accuracy)
+    print '* Test Dataset Error %s' % (test_error)
+    print '* Avg train(back propagation) action:  %s' % (avg_time_per_train)
+    print '* Training dataset size:  %s' % len(training_inputs[0])
+    print '* Test dataset size:  %s' % len(test_dataset[0])
+    print '----------------------------------------------------------------'
+    print 'Dumping Results in \"results_out.txt\" file '
+    print '----------------------------------------x------------------------'
+
+    """
 		Dumping results in out file
 	"""
-	results_out_file = os.path.join(run_path,'results_out.txt')
-	results_out = {
-		"MSE":epoch_error,
-		"training_accuracy":training_accuracy, #w training dataset
-		"training_error":training_error, #w training dataset
-		"test_accuracy":test_accuracy, #w test dataset
-		"test_error":test_error #w test dataset
-	}
-	writeAsJson(results_out,results_out_file,indent=4)
+    results_out_file = os.path.join(run_path, 'results_out.txt')
+    results_out = {
+        'MSE': epoch_error,
+        'Training MSE:': (epoch_error),
+        'Training Dataset Male Accuracy:':(training_accuracy_male),
+        'Training Dataset Male Error:':(training_error_male),
+        'Training Dataset Female Accuracy:':(training_accuracy_female),
+        'Training Dataset Female Error:':(training_error_female),
+        'Test Dataset Accuracy:':(test_accuracy),
+        'Test Dataset Error:':(test_error),
+        'Avg train(back propagation) action:':(avg_time_per_train),
+        'Training dataset size:':len(training_inputs[0]),
+        'Test dataset size:':len(test_dataset[0])
+    }
+    writeAsJson(results_out, results_out_file, indent=4)
 
-	if checkclassdir is not None:
-		classification_out_filename = 'classification_out.txt'
-		classification_out_file = os.path.join(run_path,classification_out_filename)
-		"""
+    with open(test_results_file, 'a') as outfile:
+        outfile.write(  '\n===========INPUT===========\n')
+        outfile.write(  'processType: %s\n'%processType)
+        outfile.write(  'maxIterations: %s\n' % maxIterations)
+        outfile.write(  'signal buffer: %s\n' % signalSampleBuffer)
+        outfile.write(  'signal length: %s\n' % signalLength)
+        outfile.write( '\n===========Summary===========\n')
+        outfile.write( '* Training MSE : %s\n' % (epoch_error))
+        outfile.write( '* Training Dataset Male Accuracy: %s\n' % (training_accuracy_male))
+        outfile.write( '* Training Dataset Male Error: %s\n' % (training_error_male))
+        outfile.write( '* Training Dataset Female Accuracy: %s\n' % (training_accuracy_female))
+        outfile.write( '* Training Dataset Female Error: %s\n' % (training_error_female))
+        outfile.write( '* Test Dataset Accuracy: %s\n' % (test_accuracy))
+        outfile.write( '* Test Dataset Error %s\n' % (test_error))
+        outfile.write( '* Avg train(back propagation) action:  %s\n' % (avg_time_per_train))
+        outfile.write( '* Training dataset size:  %s\n' % len(training_dataset))
+        outfile.write( '* Test dataset size:  %s\n' % len(test_dataset[0]))
+
+    if checkclassdir is not None:
+        classification_out_filename = 'classification_out.txt'
+        classification_out_file = os.path.join(run_path, classification_out_filename)
+        """
 		Classification for unlabeled samples
 		"""
-		print '----------------------------------------------------------------'
-		print '**** Classifying samples in \"%s\" directory. ' %(checkclassdir)
-		print '**   Dumping results in  \"%s\" file ' %(classification_out_filename)
-		print '----------------------------------------------------------------'
-		
-		sample_files,classifications,activation_values = classifyUnlabeledSamples(checkclassdir,network,signalClass,signalLength,signalCount)
-		assert((len(sample_files) == len(classifications)) and(len(sample_files)==len(activation_values)))
+        print '----------------------------------------------------------------'
+        print '**** Classifying samples in \"%s\" directory. ' % (checkclassdir)
+        print '**   Dumping results in  \"%s\" file ' % (classification_out_filename)
+        print '----------------------------------------------------------------'
 
-		with open(classification_out_file, "a") as outfile:
-			for samplenum,_ in enumerate(sample_files):
-				classification_message = "#%s file \"%s\" classified as <%s>. Activation value: %s " %(samplenum+1,sample_files[samplenum],classifications[samplenum],activation_values[samplenum])
-				print classification_message
-				outfile.write(classification_message+'\n')
-	else:
-		print 'No additional samples were specified. <checkclassdir>'
-	"""
+        sample_files, classifications, activation_values = classifyUnlabeledSamples(checkclassdir, network, signalClass,
+                                                                                    signalLength, signalCount)
+        assert ((len(sample_files) == len(classifications)) and (len(sample_files) == len(activation_values)))
+
+        with open(classification_out_file, "a") as outfile:
+            for samplenum, _ in enumerate(sample_files):
+                classification_message = "#%s file \"%s\" classified as <%s>. Activation value: %s " % (
+                samplenum + 1, sample_files[samplenum], classifications[samplenum], activation_values[samplenum])
+                print classification_message
+                outfile.write(classification_message + '\n')
+    else:
+        print 'No additional samples were specified. <checkclassdir>'
+    """
 		Dumping network in pickle file
 	"""
-	network_result_file = os.path.join(run_path,'network.pickle')
+    network_result_file = os.path.join(run_path, 'network.pickle')
 
-	network.signalCount = SIGNAL_COUNT #parameters that need to be stored
-	network.signalLength = SIGNAL_LENGTH
-	pickleDumpObject(network,network_result_file)
-	network = pickleLoadObject(network_result_file)
+    network.signalCount = SIGNAL_COUNT  # parameters that need to be stored
+    network.signalLength = SIGNAL_LENGTH
+    pickleDumpObject(network, network_result_file)
+    network = pickleLoadObject(network_result_file)
+
 
 """
 	Main program
 """
 if __name__ == '__main__':
-	arguments = extractCommandParams(sys.argv[1:]) 
+    arguments = extractCommandParams(sys.argv[1:])
 
-	#mandatory args
-	learningRate = arguments["learningrate"]
-	maxIterations = arguments["iterations"]
-	femaleDataDir = arguments["femaledir"]
-	maleDataDir = arguments["maledir"]
+    # mandatory args
+    learningRate = arguments["learningrate"]
+    maxIterations = arguments["iterations"]
+    femaleDataDir = arguments["femaledir"]
+    maleDataDir = arguments["maledir"]
+    processType = arguments["processType"]
 
-	#optional args
-	DEFAULT_MOMENTUM = 0.
-	DEFAULT_BIAS = True
-	DEFAULT_SIGNAL_LENGTH = 15
-	DEFAULT_SIGNAL_COUNT = 1
-	DEFAULT_SIGNAL_CLASS = avgActivationValue
-	DEFAULT_RESULTS_FOLDER = 'gender-class-runs' #default name of folder where to place the result files
-	DEFAULT_CHECK_CLASS_DIR = None
-	DEFAULT_HIDDEN_NEURONS = None #flag, if none the number is based on the input units
+    # optional args
+    DEFAULT_MOMENTUM = 0.
+    DEFAULT_BIAS = True
+    DEFAULT_SIGNAL_LENGTH = 15
+    DEFAULT_SIGNAL_COUNT = 1
+    DEFAULT_SIGNAL_CLASS = avgActivationValue
+    DEFAULT_RESULTS_FOLDER = 'gender-class-runs'  # default name of folder where to place the result files
+    DEFAULT_CHECK_CLASS_DIR = None
+    DEFAULT_HIDDEN_NEURONS = None  # flag, if none the number is based on the input units
+    DEFAULT_SIGNAL_SAMPLE_BUFFER = 1
 
-	if "momentum" in arguments:
-		momentum = arguments["momentum"]
-	else:
-		momentum = DEFAULT_MOMENTUM
-	if "bias" in arguments:
-		bias = arguments["bias"]
-	else:
-		bias = DEFAULT_BIAS
-	if "signallength" in arguments:
-	  signalLength = arguments["signallength"]
-	else:
-	  signalLength = DEFAULT_SIGNAL_LENGTH
+    if "momentum" in arguments:
+        momentum = arguments["momentum"]
+    else:
+        momentum = DEFAULT_MOMENTUM
+    if "bias" in arguments:
+        bias = arguments["bias"]
+    else:
+        bias = DEFAULT_BIAS
+    if "signallength" in arguments:
+        signalLength = arguments["signallength"]
+    else:
+        signalLength = DEFAULT_SIGNAL_LENGTH
 
-	if "hiddenneurons" in arguments:
-		hiddenNeurons  = arguments["hiddenneurons"]
-	else:
-		hiddenNeurons = DEFAULT_HIDDEN_NEURONS
+    if "hiddenneurons" in arguments:
+        hiddenNeurons = arguments["hiddenneurons"]
+    else:
+        hiddenNeurons = DEFAULT_HIDDEN_NEURONS
 
-	if "signalcount" in arguments:
-	  signalCount = arguments["signalcount"]
-	else:
-	  signalCount = DEFAULT_SIGNAL_COUNT
+    if "signalcount" in arguments:
+        signalCount = arguments["signalcount"]
+    else:
+        signalCount = DEFAULT_SIGNAL_COUNT
 
-	if "signalclass" in arguments:
-		if arguments["signalclass"] == "mode":
-			signalClass = modeActivationValue
-		elif arguments["signalclass"] == "avg":
-			signalClass = avgActivationValue
-	else:
-		signalClass = DEFAULT_SIGNAL_CLASS
+    if "signalclass" in arguments:
+        if arguments["signalclass"] == "mode":
+            signalClass = modeActivationValue
+        elif arguments["signalclass"] == "avg":
+            signalClass = avgActivationValue
+    else:
+        signalClass = DEFAULT_SIGNAL_CLASS
 
-	if "rfolder" in arguments:
-	  resultsFolder = arguments["rfolder"]
-	else:
-	  resultsFolder = DEFAULT_RESULTS_FOLDER
+    if "rfolder" in arguments:
+        resultsFolder = arguments["rfolder"]
+    else:
+        resultsFolder = DEFAULT_RESULTS_FOLDER
 
-	if "checkclassdir" in arguments:
-	 	checkclassdir = arguments["checkclassdir"]
-	else:
-	 	checkclassdir = DEFAULT_CHECK_CLASS_DIR
+    if "checkclassdir" in arguments:
+        checkclassdir = arguments["checkclassdir"]
+    else:
+        checkclassdir = DEFAULT_CHECK_CLASS_DIR
 
-	SIGNAL_LENGTH = signalLength
-	SIGNAL_COUNT = signalCount
-	trainGenderClassification(learningRate=learningRate,hiddenNeurons=hiddenNeurons,bias=bias,
-							maxIterations=maxIterations,femaleDataDir=femaleDataDir,
-							maleDataDir=maleDataDir,momentum=momentum,signalLength=signalLength,
-							signalCount=signalCount,signalClass=signalClass,
-							resultsFolder=resultsFolder,checkclassdir=checkclassdir)
+    if "signalSampleBuffer" in arguments:
+        signalSampleBuffer = arguments["signalSampleBuffer"]
+    else:
+        signalSampleBuffer = DEFAULT_SIGNAL_SAMPLE_BUFFER
+
+
+    SIGNAL_LENGTH = signalLength
+    SIGNAL_COUNT = signalCount
+    trainGenderClassification(learningRate=learningRate, hiddenNeurons=hiddenNeurons, bias=bias,
+                              maxIterations=maxIterations, femaleDataDir=femaleDataDir,
+                              maleDataDir=maleDataDir, momentum=momentum, signalLength=signalLength,
+                              signalCount=signalCount, signalClass=signalClass,
+                              resultsFolder=resultsFolder, checkclassdir=checkclassdir,signalSampleBuffer=signalSampleBuffer,processType=processType)

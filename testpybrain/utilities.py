@@ -23,16 +23,16 @@ def pickleLoadObject(_file):
 """
 def extractCommandParams(argv):
    how_to_use_message = '$ Usage: \n\tShort ARGS: testtraining.py -l <rate> ' \
-                        ' -i <howmany> -f <path> -m <path>\n'\
+                        ' -i <howmany> -f <path> -m <path> -p <processType>\n'\
                         '\tLong  ARGS: testtraining.py --learningrate <rate> ' \
-                        ' --iterations <howmany>'\
+                        ' --iterations <howmany> --processType <mfcc or wav>'\
                         '--femaledir <path> --maledir <path>\n\n'\
                         '\t[OPTIONAL ARGS] --hiddenneurons <howmany> --momentum <rate> --bias <true,false> --signallength <length> --signalcount <count> '\
                         '--signalclass <avg or mode> --checkclassdir <parh> --rfolder <path> '\
                         '$ Please refer to the README.md file for further explanation\n'
 
-   mandatory_args = [("-l","--learningrate"),("-i","--iterations"),("-f","--femaledir"),("-m","--maledir")]
-   optional_args = [("--hiddenneurons"),("--momentum"),("--bias"),("--signallength"),("--signalcount"),("--signalclass"),("--checkclassdir"),("--rfolder")]
+   mandatory_args = [("-l","--learningrate"),("-i","--iterations"),("-f","--femaledir"),("-m","--maledir"),("-p","--processType")]
+   optional_args = [("--hiddenneurons"),("--momentum"),("--bias"),("--signallength"),("--signalcount"),("--signalclass"),("--checkclassdir"),("--rfolder"),("--signalSampleBuffer")]
 
    # checking that all mandatory arguments were provide within the command line
    for shortArg,longArg in mandatory_args:
@@ -42,10 +42,10 @@ def extractCommandParams(argv):
          sys.exit(2)
   
    try:
-      opts, args = getopt.getopt(argv,'l:i:f:m:',['learningrate=','iterations=',
+      opts, args = getopt.getopt(argv,'l:i:f:m:p:',['learningrate=','iterations=',
       												'femaledir=','maledir=','hiddenneurons=','momentum=',
                                           'bias=','signallength=','signalcount=','signalclass=','checkclassdir=',
-      												'rfolder='])
+      												'rfolder=','signalSampleBuffer='])
    except getopt.GetoptError:
       print how_to_use_message
       sys.exit(2)
@@ -62,6 +62,8 @@ def extractCommandParams(argv):
          parsed_arguments["femaledir"] = arg
       elif opt in ("-m","--maledir"):
          parsed_arguments["maledir"] = arg
+      elif opt in ("-p","--processType"):
+          parsed_arguments["processType"] = arg
 
       #optional args
       elif opt == "--signallength":
@@ -84,6 +86,9 @@ def extractCommandParams(argv):
             parsed_arguments["signalclass"] = "avg"
          else:
             parsed_arguments["signalclass"] = arg
+      elif opt == "--signalSampleBuffer":
+          parsed_arguments["signalSampleBuffer"] = int(arg)
+
 
    return parsed_arguments
 
