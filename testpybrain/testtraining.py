@@ -65,7 +65,20 @@ def deep_getsizeof(o,name,indentCount):
 
     return sum;
 
-def getData(dirname, signalLength, signalCount, signalSampleBuffer,processType, testProportion=0.2):
+def testFileOnDefaultNetwork(file,signalLength=320,):#TODO: 1.improve the function by testing the file on user selected network, 2. Make signalLength not default to 320
+    (rate, sig) = wav.read(file)
+    if (len(sig) < signalLength):
+        return "file tested too short to learn"
+
+    signalSampleBuffer=1
+
+    voiceSignal = getVoiceSignal(sig, rate, signalLength, signalSampleBuffer, processType)  # using wave.rea
+
+    if (len(voiceSignal) == 0):
+        return "you are not supposed to arrive here"
+
+
+def getData(dirname, signalLength, signalSampleBuffer,processType, testProportion=0.2):
     training_data = ([], [], [])
     test_data = ([], [], [])
 
@@ -111,7 +124,7 @@ def getData(dirname, signalLength, signalCount, signalSampleBuffer,processType, 
             print wav_file+" too short to learn"
             continue
 
-        voiceSignal = getVoiceSignal(sig, rate, signalLength, signalCount,processType)  # using wave.rea
+        voiceSignal = getVoiceSignal(sig, rate, signalLength, signalSampleBuffer ,processType)  # using wave.rea
 
         if(len(voiceSignal)==0):
             print wav_file + " you are not supposed to arrive here"
@@ -169,7 +182,7 @@ def getData(dirname, signalLength, signalCount, signalSampleBuffer,processType, 
             print wav_file + " too short to learn"
             continue
         
-        voiceSignal = getVoiceSignal(sig, rate, signalLength, signalCount,processType)
+        voiceSignal = getVoiceSignal(sig, rate, signalLength, signalSampleBuffer,processType)
         if (len(voiceSignal) == 0):
             print wav_file + " you are not supposed to arrive here"
             continue
@@ -559,7 +572,7 @@ def getClassificationOnDataset(dataset, network):
 """
 
 
-def classifyUnlabeledSamples(samplesdir, network, signalClass, signalLength, signalCount):
+def classifyUnlabeledSamples(samplesdir, network, signalClass, signalLength, signalSampleBuffer):
     sample_files = []
     classifications = []
     activation_values = []
@@ -570,7 +583,7 @@ def classifyUnlabeledSamples(samplesdir, network, signalClass, signalLength, sig
             continue
 
         file_data = np.loadtxt(data_file)
-        vs = getVoiceSignal(file_data, signalLength, signalCount)
+        vs = getVoiceSignal(file_data, signalLength, signalSampleBuffer)
         result = signalClass(vs, network)
 
         sample_files.append(file_name)
@@ -623,20 +636,20 @@ def printMemoryDiffFromNow(messageToPrint):
     memoryLog=0
 
 def trainGenderClassification(learningRate, hiddenNeurons, bias, maxIterations, femaleDataDir,
-                              maleDataDir, momentum, signalLength, signalCount, signalClass,
+                              maleDataDir, momentum, signalLength, signalClass,
                               resultsFolder, checkclassdir, signalSampleBuffer,processType):
     """
 		Prepating Training and Test datasets
 	"""
     # extracting female and male samples
     startMemoryCounter()
-    female_training_samples, female_test_samples = getData(femaleDataDir, signalLength, signalSampleBuffer, signalCount,processType)
+    female_training_samples, female_test_samples = getData(femaleDataDir, signalLength, signalSampleBuffer,processType)
     print '* female training samples: %s' % (len(female_training_samples[0]))
     print '* female test samples: %s' % (len(female_test_samples[0]))
     printMemoryDiffFromNow("getData(femaleDataDir,...)")
 
     startMemoryCounter()
-    male_training_samples, male_test_samples = getData(maleDataDir, signalLength, signalSampleBuffer, signalCount,processType)
+    male_training_samples, male_test_samples = getData(maleDataDir, signalLength, signalSampleBuffer,processType)
     print '* male training samples: %s' % (len(male_training_samples[0]))
     print '* male test samples: %s' % (len(male_test_samples[0]))
     printMemoryDiffFromNow("getData(maleDataDir,...)")
@@ -733,7 +746,7 @@ def trainGenderClassification(learningRate, hiddenNeurons, bias, maxIterations, 
         'maleDataDir': maleDataDir,
         'datasetSize': len(training_dataset),
         'signalLength': signalLength,
-        'signalCount': signalCount,
+        'signalSampleBuffer': signalSampleBuffer,
         'signalClass': signalClass.__name__,
         'resultsFolder': resultsFolder,
         'checkclassdir': checkclassdir
@@ -859,7 +872,7 @@ def trainGenderClassification(learningRate, hiddenNeurons, bias, maxIterations, 
         print '----------------------------------------------------------------'
 
         sample_files, classifications, activation_values = classifyUnlabeledSamples(checkclassdir, network, signalClass,
-                                                                                    signalLength, signalCount)
+                                                                                    signalLength, signalSampleBuffer)
         assert ((len(sample_files) == len(classifications)) and (len(sample_files) == len(activation_values)))
 
         with open(classification_out_file, "a") as outfile:
@@ -875,7 +888,7 @@ def trainGenderClassification(learningRate, hiddenNeurons, bias, maxIterations, 
 	"""
     network_result_file = os.path.join(run_path, 'network.pickle')
 
-    network.signalCount = SIGNAL_COUNT  # parameters that need to be stored
+    # network.signalCount = SIGNAL_COUNT  # parameters that need to be stored
     network.signalLength = SIGNAL_LENGTH
     pickleDumpObject(network, network_result_file)
     network = pickleLoadObject(network_result_file)
@@ -898,7 +911,6 @@ if __name__ == '__main__':
     DEFAULT_MOMENTUM = 0.
     DEFAULT_BIAS = True
     DEFAULT_SIGNAL_LENGTH = 15
-    DEFAULT_SIGNAL_COUNT = 1
     DEFAULT_SIGNAL_CLASS = avgActivationValue
     DEFAULT_RESULTS_FOLDER = 'gender-class-runs'  # default name of folder where to place the result files
     DEFAULT_CHECK_CLASS_DIR = None
@@ -922,11 +934,6 @@ if __name__ == '__main__':
         hiddenNeurons = arguments["hiddenneurons"]
     else:
         hiddenNeurons = DEFAULT_HIDDEN_NEURONS
-
-    if "signalcount" in arguments:
-        signalCount = arguments["signalcount"]
-    else:
-        signalCount = DEFAULT_SIGNAL_COUNT
 
     if "signalclass" in arguments:
         if arguments["signalclass"] == "mode":
@@ -953,9 +960,8 @@ if __name__ == '__main__':
 
 
     SIGNAL_LENGTH = signalLength
-    SIGNAL_COUNT = signalCount
     trainGenderClassification(learningRate=learningRate, hiddenNeurons=hiddenNeurons, bias=bias,
                               maxIterations=maxIterations, femaleDataDir=femaleDataDir,
                               maleDataDir=maleDataDir, momentum=momentum, signalLength=signalLength,
-                              signalCount=signalCount, signalClass=signalClass,
+                              signalClass=signalClass,
                               resultsFolder=resultsFolder, checkclassdir=checkclassdir,signalSampleBuffer=signalSampleBuffer,processType=processType)
