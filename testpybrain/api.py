@@ -12,39 +12,39 @@ app = Flask(__name__)
 # GENDER_ENGINE_PATH = "/home/shahar963/PycharmProjects/localTestRun"
 # DB_PATH = '/home/shahar963/PycharmProjects/trainAPI/mydb'
 #
-# def connectToDB():
-#     db = sqlite3.connect(DB_PATH)
-#     return db
-#
-# def closeDB(db):
-#     db.commit;
-#     db.close
-#
+def connectToDB(path):
+    db = sqlite3.connect(path)
+    return db
+
+def closeDB(db):
+    db.commit;
+    db.close
+
 # @app.route("/")
 # def hello():
-#     #
-#     # sql = ''' INSERT INTO TRAINED_NEURAL_NETWORKS(  description,
-#     #                                                 learningRate,
-#     #                                                 maxIterations,
-#     #                                                 signal_length,
-#     #                                                 signal_sample_buffer,
-#     #                                                 process_type,
-#     #                                                 network)
-#     #               VALUES(?,?,?,?,?,?,?) '''
-#     #
-#     # networksPath = GENDER_ENGINE_PATH + '/trained networks/'
-#     # networkFiles = [f for f in listdir(networksPath) if isfile(join(networksPath, f))]
-#     # fileHandle = open(networkFiles[0],'r');
-#     # content = fileHandle.read()
-#     # blob = sqlite3.Binary(content)
-#     #
-#     # new_network = ("test network",0.01,100,320,20,'mfcc',blob);
-#     #
-#     # cursor.execute(sql,new_network);
-#     #
-#     # db.commit();
-#     #
-#     # db.close()
+#     db = connectToDB("mydb")
+#     cur = db.cursor()
+#
+#     sql = ''' INSERT INTO TRAINED_NEURAL_NETWORKS(  description,
+#                                                     learningRate,
+#                                                     maxIterations,
+#                                                     signal_length,
+#                                                     signal_sample_buffer,
+#                                                     process_type,
+#                                                     network)
+#                   VALUES(?,?,?,?,?,?,?) '''
+#
+#     with open('network_saved.p', 'r') as input_file:
+#         content = input_file.read()
+#     blob = sqlite3.Binary(content)
+#
+#     new_network = ("test network",0.01,100,320,20,'mfcc',blob);
+#
+#     cur.execute(sql,new_network);
+#
+#     db.commit();
+#
+#     db.close()
 #     return "Hello World!"
 #
 # @app.route("/testFile", methods=["POST"])
@@ -55,7 +55,7 @@ app = Flask(__name__)
 #
 # @app.route("/networks", methods=["GET"])
 # def getNetworks():
-#     db = connectToDB()
+#     db = connectToDB("mydb")
 #     cur = db.cursor()
 #
 #     cur.execute('''SELECT   id,
@@ -78,8 +78,10 @@ app = Flask(__name__)
 def upload_file():
     if request.method == 'POST':
         f = request.files['file']
-        f.save(f.filename)
-        return 'file uploaded successfully'
+        b=f.save(f.filename)
+        prediction = testtraining.testFileOnDefaultNetwork(f.filename,testtraining.avgActivationValue)
+
+        return prediction
 
 # if __name__ == '__main__':
 #     app.run(debug=True)

@@ -21,6 +21,7 @@ import gc
 from collections import Mapping, Container
 from sys import getsizeof
 #the end of additional imports
+import sqlite3
 
 from utilities import extractCommandParams, createRunFolder, writeAsJson, pickleDumpObject, pickleLoadObject
 import sys
@@ -29,10 +30,10 @@ from collections import Counter
 from python_speech_features import mfcc
 import scipy.io.wavfile as wav
 
-global SIGNAL_LENGTH, SIGNAL_COUNT
-SIGNAL_COUNT = 15
-SIGNAL_COUNT = 1
+global SIGNAL_LENGTH
 memoryLog=0
+# DB_PATH = '/home/shahar963/PycharmProjects/trainAPI/'
+CONVERTED_NETWORK_FILE = "tmpNetworkFile"
 
 """
 	@param dirname the directory containing mfcc samples
@@ -65,17 +66,49 @@ def deep_getsizeof(o,name,indentCount):
 
     return sum;
 
-def testFileOnDefaultNetwork(file,signalLength=320,):#TODO: 1.improve the function by testing the file on user selected network, 2. Make signalLength not default to 320
+def connectToDB(path):
+    db = sqlite3.connect(path)
+    return db
+
+def closeDB(db):
+    db.commit;
+    db.close
+
+def testFileOnDefaultNetwork(file,signalClass,signalSampleBuffer=100,signalLength=320,processType='mfcc'):#TODO: 1.improve the function by testing the file on user selected network, 2. Make signalLength not default to 320
     (rate, sig) = wav.read(file)
     if (len(sig) < signalLength):
         return "file tested too short to learn"
-
-    signalSampleBuffer=1
 
     voiceSignal = getVoiceSignal(sig, rate, signalLength, signalSampleBuffer, processType)  # using wave.rea
 
     if (len(voiceSignal) == 0):
         return "you are not supposed to arrive here"
+
+    db = connectToDB('mydb')
+    cur = db.cursor()
+    cur.execute('''SELECT   id,
+                            description,
+                            learningRate,
+                            maxIterations,
+                            signal_length,
+                            signal_sample_buffer,
+                            process_type,
+                            network
+                                FROM TRAINED_NEURAL_NETWORKS''')
+    rows = cur.fetchall();
+    closeDB(db)
+
+    blob = rows[0][7]
+    with open(CONVERTED_NETWORK_FILE, 'wb') as output_file:
+        output_file.write(blob)
+
+    deserializedNetwork = pickleLoadObject(CONVERTED_NETWORK_FILE)
+
+    estimated_output = signalClass(voiceSignal, deserializedNetwork) #TODO: handle the case where you train with wav and test with mfcc or the other way around
+
+    prediction = getGender(estimated_output)
+
+    return prediction
 
 
 def getData(dirname, signalLength, signalSampleBuffer,processType, testProportion=0.2):
@@ -162,7 +195,7 @@ def getData(dirname, signalLength, signalSampleBuffer,processType, testProportio
         training_inputs, training_targets, training_mfccfiles = training_data
         training_inputs.extend(voiceSignal)
         training_targets.extend(targets)
-        training_mfccfiles.extend(files)
+        training_mfccfiles.extend(files)#TODO: check what the part of mfccfiles
 
     # test signal samples are grouped
     for ntest in xrange(0, wav_num_test_samples):
@@ -642,6 +675,7 @@ def trainGenderClassification(learningRate, hiddenNeurons, bias, maxIterations, 
 		Prepating Training and Test datasets
 	"""
     # extracting female and male samples
+    print('whattttttttttt')
     startMemoryCounter()
     female_training_samples, female_test_samples = getData(femaleDataDir, signalLength, signalSampleBuffer,processType)
     print '* female training samples: %s' % (len(female_training_samples[0]))
@@ -791,9 +825,9 @@ def trainGenderClassification(learningRate, hiddenNeurons, bias, maxIterations, 
         startMemoryCounter()
 
 
-    # pickleDumpObject(trainer,"train2.p");
-    #
-    # deserializedTrainer = pickleLoadObject("train2.p");
+    pickleDumpObject(network,"network_saved.p");
+
+    deserializedTrainer = pickleLoadObject("train2.p");
 
     training_error_male = tr_error_male
     training_accuracy_male = 1 - training_error_male
@@ -898,6 +932,7 @@ def trainGenderClassification(learningRate, hiddenNeurons, bias, maxIterations, 
 	Main program
 """
 if __name__ == '__main__':
+
     arguments = extractCommandParams(sys.argv[1:])
 
     # mandatory args
