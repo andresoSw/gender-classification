@@ -27,12 +27,12 @@ def extractCommandParams(argv):
                         '\tLong  ARGS: testtraining.py --learningrate <rate> ' \
                         ' --iterations <howmany> --processType <mfcc or wav>'\
                         '--femaledir <path> --maledir <path>\n\n'\
-                        '\t[OPTIONAL ARGS] --hiddenneurons <howmany> --momentum <rate> --bias <true,false> --signallength <length> --signalcount <count> '\
+                        '\t[OPTIONAL ARGS] --hiddenneurons <howmany> --momentum <rate> --bias <true,false> --signallength <length>'\
                         '--signalclass <avg or mode> --checkclassdir <parh> --rfolder <path> '\
                         '$ Please refer to the README.md file for further explanation\n'
 
    mandatory_args = [("-l","--learningrate"),("-i","--iterations"),("-f","--femaledir"),("-m","--maledir"),("-p","--processType")]
-   optional_args = [("--hiddenneurons"),("--momentum"),("--bias"),("--signallength"),("--signalcount"),("--signalclass"),("--checkclassdir"),("--rfolder"),("--signalSampleBuffer")]
+   optional_args = [("--hiddenneurons"),("--momentum"),("--bias"),("--signallength"),("--signalclass"),("--checkclassdir"),("--rfolder"),("--signalSampleBuffer")]
 
    # checking that all mandatory arguments were provide within the command line
    for shortArg,longArg in mandatory_args:
@@ -44,7 +44,7 @@ def extractCommandParams(argv):
    try:
       opts, args = getopt.getopt(argv,'l:i:f:m:p:',['learningrate=','iterations=',
       												'femaledir=','maledir=','hiddenneurons=','momentum=',
-                                          'bias=','signallength=','signalcount=','signalclass=','checkclassdir=',
+                                          'bias=','signallength=','signalclass=','checkclassdir=',
       												'rfolder=','signalSampleBuffer='])
    except getopt.GetoptError:
       print how_to_use_message
@@ -68,8 +68,6 @@ def extractCommandParams(argv):
       #optional args
       elif opt == "--signallength":
          parsed_arguments["signallength"] = int(arg)
-      elif opt == "--signalcount":
-         parsed_arguments["signalcount"] = int(arg)
       elif opt == "--checkclassdir":
       	parsed_arguments["checkclassdir"] = arg
       elif opt == "--rfolder":
