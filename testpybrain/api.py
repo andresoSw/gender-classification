@@ -1,17 +1,15 @@
 from flask import Flask, render_template, request
 from os import listdir
 from os.path import isfile, join
-import pickle
 import json
 import jsonpickle
 import sqlite3
 import testtraining
+from flask_cors import CORS
 
 app = Flask(__name__)
+CORS(app)
 
-# GENDER_ENGINE_PATH = "/home/shahar963/PycharmProjects/localTestRun"
-# DB_PATH = '/home/shahar963/PycharmProjects/trainAPI/mydb'
-#
 def connectToDB(path):
     db = sqlite3.connect(path)
     return db
@@ -78,13 +76,26 @@ def closeDB(db):
 def upload_file():
     if request.method == 'POST':
         f = request.files['file']
-        b=f.save(f.filename)
-        prediction = testtraining.testFileOnDefaultNetwork(f.filename,testtraining.avgActivationValue)
+        f.save('tmpFiles/'+f.filename)
+        networkSelected = request.form['networkSelected'];
+
+        prediction = testtraining.testFileOnNetwork(f.filename,networkSelected,testtraining.avgActivationValue)
 
         return prediction
 
-# if __name__ == '__main__':
-#     app.run(debug=True)
+@app.route('/getNetworksNames', methods=['GET'])
+def getNetworksNames():
+    db = connectToDB("mydb")
+    cur = db.cursor()
+
+    cur.execute('''SELECT   description
+                                FROM TRAINED_NEURAL_NETWORKS''')
+    rows = cur.fetchall();
+    closeDB(db)
+
+    rowsJson=json.dumps(rows)
+
+    return rowsJson
 
 if __name__ == '__main__':
     # app.run(debug=True)
