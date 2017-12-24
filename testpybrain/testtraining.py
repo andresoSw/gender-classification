@@ -33,7 +33,7 @@ import scipy.io.wavfile as wav
 global SIGNAL_LENGTH
 memoryLog=0
 # DB_PATH = '/home/shahar963/PycharmProjects/trainAPI/'
-CONVERTED_NETWORK_FILE = "tmpNetworkFile"
+CONVERTED_NETWORK_FILE = "tmpFiles/tmpNetworkFile"
 
 """
 	@param dirname the directory containing mfcc samples
@@ -74,8 +74,8 @@ def closeDB(db):
     db.commit;
     db.close
 
-def testFileOnDefaultNetwork(file,signalClass,signalSampleBuffer=100,signalLength=320,processType='mfcc'):#TODO: 1.improve the function by testing the file on user selected network, 2. Make signalLength not default to 320
-    (rate, sig) = wav.read(file)
+def testFileOnNetwork(file,networkSelectedName,signalClass,signalSampleBuffer=100,signalLength=320,processType='mfcc'):#TODO: 1.improve the function by testing the file on user selected network, 2. Make signalLength not default to 320
+    (rate, sig) = wav.read('tmpFiles/'+file)
     if (len(sig) < signalLength):
         return "file tested too short to learn"
 
@@ -98,7 +98,8 @@ def testFileOnDefaultNetwork(file,signalClass,signalSampleBuffer=100,signalLengt
     rows = cur.fetchall();
     closeDB(db)
 
-    blob = rows[0][7]
+    blob = [row[7] for row in rows if row[1]==networkSelectedName][0]#Fetching the network from the propper row in the db, #TODO: I can filter in the query for the db instead(if I want... not sure how much it is needed)
+
     with open(CONVERTED_NETWORK_FILE, 'wb') as output_file:
         output_file.write(blob)
 
