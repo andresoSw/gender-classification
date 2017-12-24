@@ -74,39 +74,46 @@ def closeDB(db):
     db.commit;
     db.close
 
-def testFileOnNetwork(file,networkSelectedName,signalClass,signalSampleBuffer=100,signalLength=320,processType='mfcc'):#TODO: 1.improve the function by testing the file on user selected network, 2. Make signalLength not default to 320
-    (rate, sig) = wav.read('tmpFiles/'+file)
-    if (len(sig) < signalLength):
-        return "file tested too short to learn"
-
-    voiceSignal = getVoiceSignal(sig, rate, signalLength, signalSampleBuffer, processType)  # using wave.rea
-
-    if (len(voiceSignal) == 0):
-        return "you are not supposed to arrive here"
-
-    db = connectToDB('mydb')
+def getAllNetworksFromDB(dbParam):
+    db = connectToDB(dbParam)
     cur = db.cursor()
-    cur.execute('''SELECT   id,
-                            description,
-                            learningRate,
-                            maxIterations,
-                            signal_length,
-                            signal_sample_buffer,
-                            process_type,
-                            network
-                                FROM TRAINED_NEURAL_NETWORKS''')
+    cur.execute('''SELECT           id,
+                                    description,
+                                    learningRate,
+                                    maxIterations,
+                                    signal_length,
+                                    signal_sample_buffer,
+                                    process_type,
+                                    network
+                                        FROM TRAINED_NEURAL_NETWORKS''')
     rows = cur.fetchall();
     closeDB(db)
 
-    blob = [row[7] for row in rows if row[1]==networkSelectedName][0]#Fetching the network from the propper row in the db, #TODO: I can filter in the query for the db instead(if I want... not sure how much it is needed)
+    return rows
 
+#TODO: save the signalClass to db
+def testFileOnNetwork(file,networkSelectedName,signalClass):#TODO: 1.improve the function by testing the file on user selected network, 2. Make signalLength not default to 320
+    #--------Fetching the network-------#
+    rows = getAllNetworksFromDB('mydb')#fetch all networks from db
+    row = [row for row in rows if row[1] == networkSelectedName][0]  # Fetching the network from the propper row in the db, #TODO: I can filter in the query for the db instead(if I want... not sure how much it is needed)
+    signalLength = row[4]
+    signalSampleBuffer = row[5]
+    processType=row[6]
+    blob = row[7]
     with open(CONVERTED_NETWORK_FILE, 'wb') as output_file:
         output_file.write(blob)
-
     deserializedNetwork = pickleLoadObject(CONVERTED_NETWORK_FILE)
 
-    estimated_output = signalClass(voiceSignal, deserializedNetwork) #TODO: handle the case where you train with wav and test with mfcc or the other way around
+    # --------building the signal from file-------#
+    (rate, sig) = wav.read('tmpFiles/'+file)
+    if (len(sig) < signalLength):
+        return "file tested too short to learn"
+    voiceSignal = getVoiceSignal(sig, rate, signalLength, signalSampleBuffer, processType)  # using wave.rea
+    if (len(voiceSignal) == 0):
+        return "you are not supposed to arrive here"
 
+    # --------Running the file on the network-------#
+    estimated_output = signalClass(voiceSignal, deserializedNetwork) #TODO: handle the case where you train with wav and test with mfcc or the other way around
     prediction = getGender(estimated_output)
 
     return prediction
@@ -676,7 +683,6 @@ def trainGenderClassification(learningRate, hiddenNeurons, bias, maxIterations, 
 		Prepating Training and Test datasets
 	"""
     # extracting female and male samples
-    print('whattttttttttt')
     startMemoryCounter()
     female_training_samples, female_test_samples = getData(femaleDataDir, signalLength, signalSampleBuffer,processType)
     print '* female training samples: %s' % (len(female_training_samples[0]))

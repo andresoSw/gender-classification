@@ -72,6 +72,11 @@ def closeDB(db):
 #
 #     return rows_JSON
 
+@app.route('/trainNewNetwork', methods=['GET', 'POST'])
+def trainNewNetwork():
+
+    return "stub return value of trainNewNetwork function"
+
 @app.route('/uploader', methods=['GET', 'POST'])
 def upload_file():
     if request.method == 'POST':
@@ -83,12 +88,18 @@ def upload_file():
 
         return prediction
 
-@app.route('/getNetworksNames', methods=['GET'])
-def getNetworksNames():
+@app.route('/getTrainedNetworks', methods=['GET'])
+def getTrainedNetworks():
     db = connectToDB("mydb")
     cur = db.cursor()
 
-    cur.execute('''SELECT   description
+    cur.execute('''SELECT   id,
+                            description,
+                            learningRate,
+                            maxIterations,
+                            signal_length,
+                            signal_sample_buffer,
+                            process_type
                                 FROM TRAINED_NEURAL_NETWORKS''')
     rows = cur.fetchall();
     closeDB(db)
