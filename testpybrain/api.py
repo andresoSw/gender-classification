@@ -14,10 +14,6 @@ def connectToDB(path):
     db = sqlite3.connect(path)
     return db
 
-def closeDB(db):
-    db.commit;
-    db.close
-
 # @app.route("/")
 # def hello():
 #     db = connectToDB("mydb")
@@ -32,11 +28,11 @@ def closeDB(db):
 #                                                     network)
 #                   VALUES(?,?,?,?,?,?,?) '''
 #
-#     with open('network_saved.p', 'r') as input_file:
+#     with open('tmpFiles/network_saved.p', 'r') as input_file:
 #         content = input_file.read()
 #     blob = sqlite3.Binary(content)
 #
-#     new_network = ("test network",0.01,100,320,20,'mfcc',blob);
+#     new_network = ("test network2",0.01,100,320,20,'mfcc',blob);
 #
 #     cur.execute(sql,new_network);
 #
@@ -44,7 +40,7 @@ def closeDB(db):
 #
 #     db.close()
 #     return "Hello World!"
-#
+
 # @app.route("/testFile", methods=["POST"])
 # def testFile():
 #     print("stepped here")
@@ -75,7 +71,18 @@ def closeDB(db):
 @app.route('/trainNewNetwork', methods=['GET', 'POST'])
 def trainNewNetwork():
 
-    return "stub return value of trainNewNetwork function"
+    data = json.loads(request.data)
+
+    description=str(data['name'])
+    learningRate=str(data['learningRate'])
+    maxIterations=str(data['iterations'])
+    signalLength=str(data['signalLength'])
+    signalSampleBuffer=str(data['signalSampleBuffer'])
+    processType = str(data['processType'])
+
+    res = testtraining.trainNewNetwork(description,learningRate,maxIterations,processType,signalLength,signalSampleBuffer)
+
+    return "stub return value of trainNewNetwork function"+res
 
 @app.route('/uploader', methods=['GET', 'POST'])
 def upload_file():
@@ -99,10 +106,16 @@ def getTrainedNetworks():
                             maxIterations,
                             signal_length,
                             signal_sample_buffer,
-                            process_type
+                            process_type,
+                            male_training_precision,
+                            female_training_precision,
+                            male_test_precision,
+                            male_test_recall,
+                            female_test_precision,
+                            female_test_recall
                                 FROM TRAINED_NEURAL_NETWORKS''')
     rows = cur.fetchall();
-    closeDB(db)
+    db.close()
 
     rowsJson=json.dumps(rows)
 

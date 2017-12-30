@@ -30,9 +30,9 @@ from collections import Counter
 from python_speech_features import mfcc
 import scipy.io.wavfile as wav
 
-global SIGNAL_LENGTH
+global SIGNAL_LENGTH #TODO: fix this shit with the global SIGNAL_LENGTH and SIGNAL_COUNT on other files also...
+SIGNAL_LENGTH=15
 memoryLog=0
-# DB_PATH = '/home/shahar963/PycharmProjects/trainAPI/'
 CONVERTED_NETWORK_FILE = "tmpFiles/tmpNetworkFile"
 
 """
@@ -118,6 +118,62 @@ def testFileOnNetwork(file,networkSelectedName,signalClass):#TODO: 1.improve the
 
     return prediction
 
+def trainNewNetwork(description,learningRate,maxIterations,processType,signalLength,signalSampleBuffer):
+    commandParams = ['-l',learningRate,'-i',maxIterations,
+                     '-f','female','-m','male','-p',processType,
+                     '--rfolder','my-classification-results','--signallength',signalLength,
+                     '--signalSampleBuffer',signalSampleBuffer];
+
+    performanceResult = main(commandParams)
+
+    male_training_precision=    performanceResult[0]
+    female_training_precision=  performanceResult[1]
+    male_test_precision=        performanceResult[2]
+    male_test_recall=           performanceResult[3]
+    female_test_precision=      performanceResult[4]
+    female_test_recall=         performanceResult[5]
+
+    insertNetworkToDB('mydb','tmpFiles/network_saved.p',description,learningRate,maxIterations,processType,signalLength,signalSampleBuffer,
+                                                                                                                                          male_training_precision,
+                                                                                                                                          female_training_precision,
+                                                                                                                                          male_test_precision,
+                                                                                                                                          male_test_recall,
+                                                                                                                                          female_test_precision,
+                                                                                                                                          female_test_recall)
+    return "success or failure"
+
+def insertNetworkToDB(dbName,networkPath,description,learningRate,maxIterations,processType,signalLength,signalSampleBuffer,male_training_precision,
+                                                                                                                            female_training_precision,
+                                                                                                                            male_test_precision,
+                                                                                                                            male_test_recall,
+                                                                                                                            female_test_precision,
+                                                                                                                            female_test_recall):
+    with open('tmpFiles/network_saved.p', 'r') as input_file:
+        content = input_file.read()
+    blob = sqlite3.Binary(content)
+
+    db = connectToDB(dbName)
+    cur = db.cursor()
+    sql = ''' INSERT INTO TRAINED_NEURAL_NETWORKS(  description,
+                                                    learningRate,
+                                                    maxIterations,
+                                                    signal_length,
+                                                    signal_sample_buffer,
+                                                    process_type,
+                                                    network,
+                                                    male_training_precision,
+                                                    female_training_precision,
+                                                    male_test_precision,
+                                                    male_test_recall,
+                                                    female_test_precision,
+                                                    female_test_recall)
+                  VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?) '''
+
+    new_network = (description,float(learningRate),int(maxIterations),int(signalLength),int(signalSampleBuffer),processType,blob,
+                   male_training_precision, female_training_precision, male_test_precision, male_test_recall, female_test_precision, female_test_recall);
+    cur.execute(sql,new_network);
+    db.commit();
+    db.close()
 
 def getData(dirname, signalLength, signalSampleBuffer,processType, testProportion=0.2):
     training_data = ([], [], [])
@@ -426,7 +482,7 @@ def combineSamples(sample, othersample): #TODO: The use of this method is not un
 """
 
 
-def testOnCustomDataset(dataset, network, signalClass, test_results_file):
+def testOnCustomDataset(dataset, network, signalClass, test_results_file,performenceResult):
     estimated_outputs, targets, activation_values, mfcc_files = getClassificationOnCustomDataset(dataset, network,
                                                                                                  signalClass)
     assert (len(estimated_outputs) == len(targets))
@@ -481,6 +537,7 @@ def testOnCustomDataset(dataset, network, signalClass, test_results_file):
         else:
             male_recall = male_corrects / float(male_corrects + male_incorrects)
 
+        performenceResult.extend([male_precision,male_recall,female_precision,female_recall]);
         outfile.write('================================\n')
         outfile.write('TOTAL CORRECTS     : %s\n' % (corrects))
         outfile.write('TOTAL INCORRECTS   : %s\n' % (len(estimated_outputs) - corrects))
@@ -679,6 +736,7 @@ def printMemoryDiffFromNow(messageToPrint):
 def trainGenderClassification(learningRate, hiddenNeurons, bias, maxIterations, femaleDataDir,
                               maleDataDir, momentum, signalLength, signalClass,
                               resultsFolder, checkclassdir, signalSampleBuffer,processType):
+    performenceResult = []
     """
 		Prepating Training and Test datasets
 	"""
@@ -832,9 +890,7 @@ def trainGenderClassification(learningRate, hiddenNeurons, bias, maxIterations, 
         startMemoryCounter()
 
 
-    pickleDumpObject(network,"network_saved.p");
-
-    deserializedTrainer = pickleLoadObject("train2.p");
+    pickleDumpObject(network,"tmpFiles/network_saved.p");
 
     training_error_male = tr_error_male
     training_accuracy_male = 1 - training_error_male
@@ -844,8 +900,11 @@ def trainGenderClassification(learningRate, hiddenNeurons, bias, maxIterations, 
     avg_time_per_train = total_time/maxIterations
 
     test_results_file = os.path.join(run_path, 'test_results.txt')
-    test_error = testOnCustomDataset(test_dataset, network, signalClass, test_results_file)
+    test_error = testOnCustomDataset(test_dataset, network, signalClass, test_results_file,performenceResult)
     test_accuracy = 1 - test_error
+
+    performenceResult.append(training_accuracy_male)
+    performenceResult.append(training_accuracy_female)
 
     print '----------------------------------------------------------------'
     print '**** Training Results:'
@@ -934,13 +993,10 @@ def trainGenderClassification(learningRate, hiddenNeurons, bias, maxIterations, 
     pickleDumpObject(network, network_result_file)
     network = pickleLoadObject(network_result_file)
 
+    return performenceResult
 
-"""
-	Main program
-"""
-if __name__ == '__main__':
-
-    arguments = extractCommandParams(sys.argv[1:])
+def main(args):
+    arguments = extractCommandParams(args)
 
     # mandatory args
     learningRate = arguments["learningrate"]
@@ -1000,10 +1056,17 @@ if __name__ == '__main__':
     else:
         signalSampleBuffer = DEFAULT_SIGNAL_SAMPLE_BUFFER
 
-
     SIGNAL_LENGTH = signalLength
-    trainGenderClassification(learningRate=learningRate, hiddenNeurons=hiddenNeurons, bias=bias,
+    performenceResult = trainGenderClassification(learningRate=learningRate, hiddenNeurons=hiddenNeurons, bias=bias,
                               maxIterations=maxIterations, femaleDataDir=femaleDataDir,
                               maleDataDir=maleDataDir, momentum=momentum, signalLength=signalLength,
                               signalClass=signalClass,
                               resultsFolder=resultsFolder, checkclassdir=checkclassdir,signalSampleBuffer=signalSampleBuffer,processType=processType)
+
+    return performenceResult
+
+"""
+    Main program
+"""
+if __name__ == '__main__':
+    main(sys.argv[1:])
