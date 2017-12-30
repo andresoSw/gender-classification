@@ -92,7 +92,7 @@ def testGenderClassification(network,networkFile,maleDataDir,femaleDataDir,signa
    test_dataset = (test_inputs,test_targets,test_mfccfiles)   
 
    test_results_file = os.path.join(run_path,'test_results.txt')
-   test_error = testOnCustomDataset(test_dataset,network,signalClass,test_results_file)
+   test_error = testOnCustomDataset(test_dataset,network,signalClass,test_results_file,[])
 
    test_accuracy = 1-test_error
 

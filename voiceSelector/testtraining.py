@@ -485,8 +485,8 @@ def trainGenderClassification(learningRate,hiddenNeurons,bias,maxIterations,fema
 	"""
 	network_result_file = os.path.join(run_path,'network.pickle')
 
-	network.signalCount = SIGNAL_COUNT #parameters that need to be stored
-	network.signalLength = SIGNAL_LENGTH
+	network.signalCount = signalCount #parameters that need to be stored
+	network.signalLength = signalCount
 	pickleDumpObject(network,network_result_file)
 	network = pickleLoadObject(network_result_file)
 
@@ -553,8 +553,6 @@ if __name__ == '__main__':
 	else:
 	 	checkclassdir = DEFAULT_CHECK_CLASS_DIR
 
-	SIGNAL_LENGTH = signalLength
-	SIGNAL_COUNT = signalCount
 	trainGenderClassification(learningRate=learningRate,hiddenNeurons=hiddenNeurons,bias=bias,
 							maxIterations=maxIterations,femaleDataDir=femaleDataDir,
 							maleDataDir=maleDataDir,momentum=momentum,signalLength=signalLength,
