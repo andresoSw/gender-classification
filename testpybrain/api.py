@@ -72,6 +72,20 @@ def connectToDB(path):
 def isAlive():
     return "Hello world"
 
+@app.route('/deleteNetwork', methods=['GET'])
+def deleteNetwork():
+    networkName = str(request.args['name'])
+
+    db = connectToDB("mydb")
+    cur = db.cursor()
+
+    cur.execute('DELETE FROM TRAINED_NEURAL_NETWORKS WHERE description="'+networkName+'";')
+
+    db.commit()
+    db.close()
+
+    return networkName
+
 @app.route('/trainNewNetwork', methods=['GET', 'POST'])
 def trainNewNetwork():
 
