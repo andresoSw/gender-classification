@@ -11,8 +11,6 @@ from random import randint as rand_randint
 import math
 #additional shahar imports
 import time
-import webrtcvad
-import wave
 import matplotlib.pyplot as plt
 import Tkinter #necessey for matplotlib.pyplot
 import psutil
@@ -383,7 +381,7 @@ def getData(dirname, signalLength, signalSampleBuffer,processType, testProportio
 # Data used
 # Length of each signal
 # number of signals to be used
-def getVoiceSignal(data, rate, length, signalSampleBuffer,processType, number=1):
+def getVoiceSignal(data, rate, length, signalSampleBuffer,processType):
 
     data_size = len(data)
     voice_signals = []
@@ -393,19 +391,12 @@ def getVoiceSignal(data, rate, length, signalSampleBuffer,processType, number=1)
             voice_data=data[index[0]:index[0]+length]
 
             if (processType=='mfcc'):
-                #-- MFCC START-- #TODO: YOU NEED THIS TO WORK WITH MFCC!!!
-                mfcc_feat = mfcc(voice_data, 16000)
+                mfcc_feat = mfcc(voice_data,16000,winlen=(float(length)/16000)) #winlen calculation is used to extract 13 params exactly instead of a couple
                 signal = [c for v in mfcc_feat for c in v] #for MFCC #takes a 2d array(13*15) and create a one-dimensional(195)
-                # if (len(signal)!=13): #TODO: check why, when the signalLength=480 the len(signal) is 26 and not 13
-                #     print "HERE!!!!"
                 voice_signals.append(signal) #for MFCC
-                #-- MFCC END ---
             else:
                 if (processType=='wav'):
-
-                    # -- PURE_WAV START-- #TODO: YOU NEED THIS TO WORK WITH PURE WAV!!!
                     voice_signals.append(voice_data)  # for PURE_WAV
-                    # -- PURE_WAV END ---
                 else:
                     print 'unknown processType.. ENTER mfcc or wav as parameter'
 
@@ -482,7 +473,7 @@ def combineSamples(sample, othersample): #TODO: The use of this method is not un
 """
 
 
-def testOnCustomDataset(dataset, network, signalClass, test_results_file,performenceResult):
+def testOnCustomDataset(dataset, network, signalClass, test_results_file, performenceResult):
     estimated_outputs, targets, activation_values, mfcc_files = getClassificationOnCustomDataset(dataset, network,
                                                                                                  signalClass)
     assert (len(estimated_outputs) == len(targets))
@@ -767,11 +758,6 @@ def trainGenderClassification(learningRate, hiddenNeurons, bias, maxIterations, 
 
     assert (len(training_inputs) == len(training_targets))
 
-    print '------'
-    print '\tlen(training_inputs): ', len(training_inputs)
-    print '\tlen(test_inputs): ', len(test_inputs)
-    print '------'
-
     # building up pybrain training dataset
     numberofInputs = len(training_inputs[0])
 
@@ -861,7 +847,7 @@ def trainGenderClassification(learningRate, hiddenNeurons, bias, maxIterations, 
 
     #when debugging, stop here to view training_dataset.indim parameter
     startMemoryCounter()
-    network = buildNetwork(training_dataset.indim, hiddenNeurons, hiddenNeurons/2, hiddenNeurons/4, training_dataset.outdim, bias=bias)
+    network = buildNetwork(training_dataset.indim, hiddenNeurons, hiddenNeurons/2, hiddenNeurons/3, training_dataset.outdim, bias=bias)
     printMemoryDiffFromNow("network = buildNetwork(...)")
 
     startMemoryCounter()
