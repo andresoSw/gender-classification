@@ -68,6 +68,10 @@ def connectToDB(path):
 #
 #     return rows_JSON
 
+@app.route('/', methods=['GET'])
+def isAlive():
+    return "Hello world"
+
 @app.route('/trainNewNetwork', methods=['GET', 'POST'])
 def trainNewNetwork():
 
