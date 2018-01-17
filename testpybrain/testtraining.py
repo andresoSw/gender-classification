@@ -9,16 +9,9 @@ import numpy as np
 import random
 from random import randint as rand_randint
 import math
-#additional shahar imports
 import time
-import matplotlib.pyplot as plt
-import Tkinter #necessey for matplotlib.pyplot
 import psutil
-import psutil
-import gc
-from collections import Mapping, Container
 from sys import getsizeof
-#the end of additional imports
 import sqlite3
 
 from utilities import extractCommandParams, createRunFolder, writeAsJson, pickleDumpObject, pickleLoadObject
@@ -31,67 +24,10 @@ import scipy.io.wavfile as wav
 memoryLog=0
 CONVERTED_NETWORK_FILE = "tmpFiles/tmpNetworkFile"
 
-"""
-	@param dirname the directory containing mfcc samples
-	@param testProportion the percentaje of samples used as validation (test)
-	@return the samples of the directory, one set for training and one for validation
-		the format of the returned data for each training and test samples is a tuple
-		of 3 lists, containg the inputs, targets and mfcc files respectively
-"""
-
-def deep_getsizeof(o,name,indentCount):
-
-    curSize = getsizeof(o);
-    sum = curSize;
-
-    for indent in xrange(0, indentCount):
-        sys.stdout.write('\t')
-    print '%s, %s bytes' % (name, curSize)
-
-    #TODO: check what happens to array also
-    if(isinstance(o,dict)): #if it is a dictionary
-        items = o.items()
-        items = dict(items)
-    else:                   #get all attributes
-        items = getattr(o, '__dict__', None) #TODO:check out what happens if you do training_dataset.items()
-
-    if(items!=None):
-        for attr, value in items.iteritems():
-            attrSize=deep_getsizeof(value,attr,indentCount+1);
-            sum+=attrSize;
-
-    return sum;
-
-def connectToDB(path):
-    db = sqlite3.connect(path)
-    return db
-
-def closeDB(db):
-    db.commit;
-    db.close
-
-def getAllNetworksFromDB(dbParam):
-    db = connectToDB(dbParam)
-    cur = db.cursor()
-    cur.execute('''SELECT           id,
-                                    description,
-                                    learningRate,
-                                    maxIterations,
-                                    signal_length,
-                                    signal_sample_buffer,
-                                    process_type,
-                                    network
-                                        FROM TRAINED_NEURAL_NETWORKS''')
-    rows = cur.fetchall();
-    closeDB(db)
-
-    return rows
-
-#TODO: save the signalClass to db
-def testFileOnNetwork(file,networkSelectedName,signalClass):#TODO: 1.improve the function by testing the file on user selected network, 2. Make signalLength not default to 320
+def testFileOnNetwork(file,networkSelectedName,signalClass):
     #--------Fetching the network-------#
     rows = getAllNetworksFromDB('mydb')#fetch all networks from db
-    row = [row for row in rows if row[1] == networkSelectedName][0]  # Fetching the network from the propper row in the db, #TODO: I can filter in the query for the db instead(if I want... not sure how much it is needed)
+    row = [row for row in rows if row[1] == networkSelectedName][0]  # Fetching the network from the propper row in the db
     signalLength = row[4]
     signalSampleBuffer = row[5]
     processType=row[6]
@@ -109,7 +45,7 @@ def testFileOnNetwork(file,networkSelectedName,signalClass):#TODO: 1.improve the
         return "you are not supposed to arrive here"
 
     # --------Running the file on the network-------#
-    estimated_output = signalClass(voiceSignal, deserializedNetwork) #TODO: handle the case where you train with wav and test with mfcc or the other way around
+    estimated_output = signalClass(voiceSignal, deserializedNetwork)
     prediction = getGender(estimated_output)
 
     return prediction
@@ -171,6 +107,56 @@ def insertNetworkToDB(dbName,networkPath,description,learningRate,maxIterations,
     db.commit();
     db.close()
 
+def deep_getsizeof(o,name,indentCount):
+
+    curSize = getsizeof(o);
+    sum = curSize;
+
+    for indent in xrange(0, indentCount):
+        sys.stdout.write('\t')
+    print '%s, %s bytes' % (name, curSize)
+
+    #TODO: check what happens to array also
+    if(isinstance(o,dict)): #if it is a dictionary
+        items = o.items()
+        items = dict(items)
+    else:                   #get all attributes
+        items = getattr(o, '__dict__', None) #TODO:check out what happens if you do training_dataset.items()
+
+    if(items!=None):
+        for attr, value in items.iteritems():
+            attrSize=deep_getsizeof(value,attr,indentCount+1);
+            sum+=attrSize;
+
+    return sum;
+
+def connectToDB(path):
+    db = sqlite3.connect(path)
+    return db
+
+def closeDB(db):
+    db.commit;
+    db.close
+
+def getAllNetworksFromDB(dbParam):
+    db = connectToDB(dbParam)
+    cur = db.cursor()
+    cur.execute('''SELECT           id,
+                                    description,
+                                    learningRate,
+                                    maxIterations,
+                                    signal_length,
+                                    signal_sample_buffer,
+                                    process_type,
+                                    network
+                                        FROM TRAINED_NEURAL_NETWORKS''')
+    rows = cur.fetchall();
+    closeDB(db)
+
+    return rows
+
+
+
 def getData(dirname, signalLength, signalSampleBuffer,processType, testProportion=0.2):
     training_data = ([], [], [])
     test_data = ([], [], [])
@@ -198,19 +184,8 @@ def getData(dirname, signalLength, signalSampleBuffer,processType, testProportio
         wav_file = wav_files.pop(rand_randint(0, len(wav_files) - 1))
         #At this point I have my wav file as pure as it gets
 
-        # #Testing Area to extract VAD starts from here
-        # waveFile = wave.open(wav_file, 'rb')
-        # waveFile.getnchannels();
-        # length = waveFile.getnframes()
-        # waveRead = waveFile.readframes(length)
-        # #To hererc
         print "Training loading..."+str(round(float(ntraining)/wav_num_training_samples,2)*100)+"% "+str(ntraining)+"/"+str(wav_num_training_samples)+" free -m:"+str((psutil.virtual_memory()[1]) / (1024 * 1024))
         (rate, sig) = wav.read(wav_file)
-        # mfcc_feat = mfcc(sig, rate) #mfcc_feat is the mfcc format after processing the wav #TODO: remove this lines.. mfcc extraction went inside of getVoiceSignal after vad from sig
-        # file_data = mfcc_feat #for mfcc
-        # file_data = sig #for pure_wav
-
-        # voiceSignal = getVoiceSignal(file_data, signalLength, signalCount)#using wav.read (numphy)
 
         #Note to self: vadIndication will be shorter then sig since we skip some of the data
         if(len(sig)<signalLength):
@@ -222,6 +197,7 @@ def getData(dirname, signalLength, signalSampleBuffer,processType, testProportio
         if(len(voiceSignal)==0):
             print wav_file + " you are not supposed to arrive here"
             continue
+
         # # Testing Area to plot the waveRead and sig to find the more accurate one to use in VAD starts here
         # plt.figure(1)
         # plt.subplot(2,2,1)
@@ -265,11 +241,6 @@ def getData(dirname, signalLength, signalSampleBuffer,processType, testProportio
         wav_file = wav_files.pop(rand_randint(0, len(wav_files) - 1))
 
         (rate, sig) = wav.read(wav_file)
-        # mfcc_feat = mfcc(sig, rate)#MFCC
-
-        # before: file_data = np.loadtxt(mfcc_file)
-        # file_data = mfcc_feat#MFCC
-        # file_data = sig#PURE_WAV
 
         if (len(sig) < signalLength):
             print wav_file + " too short to learn"
@@ -290,92 +261,6 @@ def getData(dirname, signalLength, signalSampleBuffer,processType, testProportio
     assert (wav_files == [])
     return (training_data, test_data)
 
-
-# # Old Version -> Used to split the sound by number 'number'(signalCount)
-# # Data used
-# # Length of each signal
-# # number of signals to be used
-# def getVoiceSignal(data, length, number=1):
-#     vad = webrtcvad.Vad()   #FOR_VAD
-#     vad.set_mode(1)         #FOR_VAD
-#     sample_rate = 16000     #FOR_VAD
-#
-#     data_size = len(data)
-#     voice_part = split(data, number)  # What happens here?
-#     voice_signals = []
-#     for voice in voice_part:
-#         voice_data = voice[len(voice) / 2:(len(voice) / 2) + length]
-#         # signal = [c for v in voice_data for c in v] #for MFCC
-#         # voice_signals.append(signal) #for MFCC
-#         voice_signals.append(voice_data) #fror PURE_WAV
-#         valid_RateAndFrame = webrtcvad.valid_rate_and_frame_length(sample_rate,len(voice_data))#TODO: if this has no use-> remove it
-#         isVoice = vad.is_speech(voice_data,sample_rate)
-#
-#     return voice_signals
-
-# #Shahar-> my new method uses all of the audio without overlaping since we want good performance. in the future it is possible to use overlapping
-# # Data used
-# # Length of each signal
-# # number of signals to be used
-# def getVoiceSignal(data, length, number=1):
-#     data_size = len(data)
-#     num_parts = len(data)/length
-#     voice_part = split(data[0:num_parts*length], num_parts)  # What happens here?
-#     voice_signals = []
-#     for voice in voice_part:
-#         # voice_data = voice[len(voice) / 2:(len(voice) / 2) + length]
-#         voice_data=voice
-#         # signal = [c for v in voice_data for c in v] #for MFCC #takes a 2d array(13*15) and create a one-dimensional(195)
-#         # voice_signals.append(signal) #for MFCC
-#
-#         voice_signals.append(voice_data) #fror PURE_WAV
-#     return voice_signals,[]
-
-# #Shahar-> With overlap and VAD
-# # Data used
-# # Length of each signal
-# # number of signals to be used
-# def getVoiceSignal(data, rate, length, signalSampleBuffer, number=1):
-#     vad = webrtcvad.Vad()  # FOR_VAD
-#     # vad.set_mode(1)  # FOR_VAD #FOR HUMANS
-#     vad.set_mode(0)  # FOR_VAD #FOR HYRAX (1 or 2)
-#     # vad.set_mode(3)  # FOR_VAD #FOR BIRDS //TODO: CHANGE_NODE, Change this for birds or humans
-#     sample_rate = 16000  # FOR_VAD
-#
-#     data_size = len(data)
-#     # num_parts = len(data)/length
-#     # voice_part = split(data[0:num_parts*length], num_parts)  # What happens here?
-#     voice_signals = []
-#     vadIndications = []
-#     for index in enumerate(data[0:data_size-length]):
-#         # voice_data = voice[len(voice) / 2:(len(voice) / 2) + length]
-#         if (index[0]%signalSampleBuffer==0):
-#
-#             voice_data=data[index[0]:index[0]+length]
-#
-#             isVoice = vad.is_speech(voice_data,16000)  # TODO:not all signals are 16kHz but the algorithm takes only this. I need to adjust my input to this
-#
-#             vadIndications.append(isVoice)
-#
-#             if isVoice==True:
-#
-#                 #-- MFCC START-- #TODO: YOU NEED THIS TO WORK WITH MFCC!!!
-#                 mfcc_feat = mfcc(voice_data, 16000)
-#                 signal = [c for v in mfcc_feat for c in v] #for MFCC #takes a 2d array(13*15) and create a one-dimensional(195)
-#                 if (len(signal)!=13):
-#                     print "HERE!!!!"
-#                 voice_signals.append(signal) #for MFCC
-#                 #-- MFCC END ---
-#
-#                 # # -- PURE_WAV START-- #TODO: YOU NEED THIS TO WORK WITH PURE WAV!!!
-#                 # voice_signals.append(voice_data)  # for PURE_WAV
-#                 # # -- PURE_WAV END ---
-#
-#     vadIndications.extend([0]*length)
-#
-#     return voice_signals, vadIndications #TODO: remove vadIndication, I no longer need it because I dont use all of the voice_data
-
-#Shahar-> With overlap and no VAD, the assumption is that VAD is part of the pre-process and all of the data that is input to the code is relevant
 # Data used
 # Length of each signal
 # number of signals to be used
@@ -779,43 +664,14 @@ def trainGenderClassification(learningRate, hiddenNeurons, bias, maxIterations, 
 
     printMemoryDiffFromNow("training_dataset.addSample... last sampleNum")
 
-    startMemoryCounter()
-    # end of release memory area - shahar
-    # availableMem = (psutil.virtual_memory()[1]) / (1024 * 1024)  # Available memory in MB
-    # print 'sampleNum: %s, %s MB memory available AFTER releasing: ' % (samplenum, availableMem)
-
-    # if samplenum<3:
-        #     print 'training_inputs[samplenum]' , training_inputs[samplenum]
-        #     print '[training_targets[samplenum]]',[training_targets[samplenum]]
-        #     print 'sampleNum: %s, training_dataset: %s'% (samplenum,training_dataset)
-
     if hiddenNeurons is None:
         hiddenNeurons = (training_dataset.indim + training_dataset.outdim) / 2
 
-    # print '----------------------------------------------------------------'
-    # print '***** Running Backpropagation Trainer with parameters:\n'
-    # print '* learningRate   : %s' % (learningRate)
-    # print '* inputs         : %s' % (training_dataset.indim)
-    # print '* outputs        : %s' % (training_dataset.outdim)
-    # print '* hiddenNeurons  : %s' % (hiddenNeurons)
-    # print '* bias           : %s' % (bias)
-    # print '* momentum       : %s' % (momentum)
-    # print '* maxIterations  : %s' % (maxIterations)
-    # print '* femaleDataDir  : %s' % (femaleDataDir)
-    # print '* maleDataDir    : %s' % (maleDataDir)
-    # print '* signalLength   : %s' % (signalLength)
-    # print '* signalCount    : %s' % (signalCount)
-    # print '* signalClass    : %s' % (signalClass.__name__)
-    # print '* resultsFolder  : %s' % (resultsFolder)
-    # print '* checkclassdir  : %s' % (checkclassdir)
-    # print '----------------------------------------------------------------'
     """
 		Computing results folder
 	"""
     run_path = createRunFolder(resultsFolder=resultsFolder)
 
-    # print '**** Dumping results in directory: \"%s\"' % (run_path)
-    # print '----------------------------------------------------------------'
     input_params_file = os.path.join(run_path, 'inputParams.txt')
     input_params = {
         'learningRate': learningRate,
@@ -843,7 +699,6 @@ def trainGenderClassification(learningRate, hiddenNeurons, bias, maxIterations, 
     test_mfccfiles = test_dataset[2]  # test_dataset format: (inputs,outputs,mfccfiles)
     writeAsJson(test_mfccfiles, test_dataset_file)
 
-    #when debugging, stop here to view training_dataset.indim parameter
     startMemoryCounter()
     network = buildNetwork(training_dataset.indim, hiddenNeurons, hiddenNeurons/2, hiddenNeurons/3, training_dataset.outdim, bias=bias)
     printMemoryDiffFromNow("network = buildNetwork(...)")
@@ -869,7 +724,6 @@ def trainGenderClassification(learningRate, hiddenNeurons, bias, maxIterations, 
         tr_error_male = 1 - tr_accuracy_male
         tr_error_female = 1 - tr_accuracy_female
 
-        # print '%s MSE: %s Train Error: %s Train Accuracy: %s Performance: %s Memory available: %s' % (epoch, epoch_error, tr_error, tr_accuracy, timestampAfterTrain-timestampBeforeTrain,availableMem)
         printMemoryDiffFromNow("train iteration "+str(epoch)+ " Performance: "+str(timestampAfterTrain-timestampBeforeTrain))
         startMemoryCounter()
 
@@ -972,9 +826,7 @@ def trainGenderClassification(learningRate, hiddenNeurons, bias, maxIterations, 
 	"""
     network_result_file = os.path.join(run_path, 'network.pickle')
 
-    # network.signalCount = SIGNAL_COUNT  # parameters that need to be stored
     pickleDumpObject(network, network_result_file)
-    network = pickleLoadObject(network_result_file)
 
     return performenceResult
 
