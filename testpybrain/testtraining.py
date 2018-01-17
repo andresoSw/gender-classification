@@ -28,8 +28,6 @@ from collections import Counter
 from python_speech_features import mfcc
 import scipy.io.wavfile as wav
 
-global SIGNAL_LENGTH #TODO: fix this shit with the global SIGNAL_LENGTH and SIGNAL_COUNT on other files also...
-SIGNAL_LENGTH=15
 memoryLog=0
 CONVERTED_NETWORK_FILE = "tmpFiles/tmpNetworkFile"
 
@@ -975,7 +973,6 @@ def trainGenderClassification(learningRate, hiddenNeurons, bias, maxIterations, 
     network_result_file = os.path.join(run_path, 'network.pickle')
 
     # network.signalCount = SIGNAL_COUNT  # parameters that need to be stored
-    network.signalLength = SIGNAL_LENGTH
     pickleDumpObject(network, network_result_file)
     network = pickleLoadObject(network_result_file)
 
@@ -1042,7 +1039,6 @@ def main(args):
     else:
         signalSampleBuffer = DEFAULT_SIGNAL_SAMPLE_BUFFER
 
-    SIGNAL_LENGTH = signalLength
     performenceResult = trainGenderClassification(learningRate=learningRate, hiddenNeurons=hiddenNeurons, bias=bias,
                               maxIterations=maxIterations, femaleDataDir=femaleDataDir,
                               maleDataDir=maleDataDir, momentum=momentum, signalLength=signalLength,
