@@ -189,9 +189,11 @@ def getData(dirname, signalLength, signalSampleBuffer,processType, testProportio
 
         #Note to self: vadIndication will be shorter then sig since we skip some of the data
         if(len(sig)<signalLength):
+            os.remove(wav_file)
             print wav_file+" too short to learn"
             continue
 
+        print wav_file
         voiceSignal = getVoiceSignal(sig, rate, signalLength, signalSampleBuffer ,processType)  # using wave.rea
 
         if(len(voiceSignal)==0):
@@ -274,9 +276,10 @@ def getVoiceSignal(data, rate, length, signalSampleBuffer,processType):
             voice_data=data[index[0]:index[0]+length]
 
             if (processType=='mfcc'):
-                mfcc_feat = mfcc(voice_data,16000,winlen=(float(length)/16000)) #winlen calculation is used to extract 13 params exactly instead of a couple
+                mfcc_feat = mfcc(voice_data,samplerate=16000) #winlen calculation is used to extract 13 params exactly instead of a couple
                 signal = [c for v in mfcc_feat for c in v] #for MFCC #takes a 2d array(13*15) and create a one-dimensional(195)
                 voice_signals.append(signal) #for MFCC
+
             else:
                 if (processType=='wav'):
                     voice_signals.append(voice_data)  # for PURE_WAV
@@ -390,26 +393,26 @@ def testOnCustomDataset(dataset, network, signalClass, test_results_file, perfor
 
 
         # PRECISION
-        if ((female_corrects + male_incorrects) == 0):
+        if ((female_corrects + female_incorrects) == 0):
             female_precision = 0
         else:
-            female_precision = female_corrects / float(female_corrects + male_incorrects)
-
-        if ((male_corrects + female_incorrects) == 0):
-            male_precision = 0
-        else:
-            male_precision = male_corrects / float(male_corrects + female_incorrects)
-
-        # RECALL
-        if ((female_corrects + female_incorrects) == 0):
-            female_recall = 0
-        else:
-            female_recall = female_corrects / float(female_corrects + female_incorrects)
+            female_precision = female_corrects / float(female_corrects + female_incorrects)
 
         if ((male_corrects + male_incorrects) == 0):
+            male_precision = 0
+        else:
+            male_precision = male_corrects / float(male_corrects + male_incorrects)
+
+        # RECALL
+        if ((female_corrects + male_incorrects) == 0):
+            female_recall = 0
+        else:
+            female_recall = female_corrects / float(female_corrects + male_incorrects)
+
+        if ((male_corrects + female_incorrects) == 0):
             male_recall = 0
         else:
-            male_recall = male_corrects / float(male_corrects + male_incorrects)
+            male_recall = male_corrects / float(male_corrects + female_incorrects)
 
         performenceResult.extend([male_precision,male_recall,female_precision,female_recall]);
         outfile.write('================================\n')
@@ -420,10 +423,11 @@ def testOnCustomDataset(dataset, network, signalClass, test_results_file, perfor
         outfile.write('MALE INCORRECTS    : %s\n' % (male_incorrects))
         outfile.write('FEMALE CORRECTS    : %s\n' % (female_corrects))
         outfile.write('FEMALE INCORRECTS  : %s\n' % (female_incorrects))
-        outfile.write('PRECISION FEMALE   : %s\n' % (female_precision))
-        outfile.write('RECALL FEMALE      : %s\n' % (female_recall))
+        outfile.write('######### detailed precision&recall #########\n')
         outfile.write('PRECISION MALE     : %s\n' % (male_precision))
+        outfile.write('PRECISION FEMALE   : %s\n' % (female_precision))
         outfile.write('RECALL MALE        : %s\n' % (male_recall))
+        outfile.write('RECALL FEMALE      : %s\n' % (female_recall))
 
         print '----------------------------------------------------------------'
         print '**** Test Results:'
@@ -700,7 +704,7 @@ def trainGenderClassification(learningRate, hiddenNeurons, bias, maxIterations, 
     writeAsJson(test_mfccfiles, test_dataset_file)
 
     startMemoryCounter()
-    network = buildNetwork(training_dataset.indim, hiddenNeurons, hiddenNeurons/2, hiddenNeurons/3, training_dataset.outdim, bias=bias)
+    network = buildNetwork(training_dataset.indim, hiddenNeurons, hiddenNeurons/2, hiddenNeurons/4, training_dataset.outdim, bias=bias)
     printMemoryDiffFromNow("network = buildNetwork(...)")
 
     startMemoryCounter()
@@ -725,6 +729,7 @@ def trainGenderClassification(learningRate, hiddenNeurons, bias, maxIterations, 
         tr_error_female = 1 - tr_accuracy_female
 
         printMemoryDiffFromNow("train iteration "+str(epoch)+ " Performance: "+str(timestampAfterTrain-timestampBeforeTrain))
+        print("train dataset accuracy, male:"+str(round(tr_accuracy_male,2))+" female:"+str(round(tr_accuracy_female,2)));
         startMemoryCounter()
 
 

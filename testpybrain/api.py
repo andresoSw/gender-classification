@@ -29,6 +29,34 @@ def deleteNetwork():
 
     return networkName
 
+@app.route('/updateExistingNetwork', methods=['GET'])
+def updateExistingNetwork():
+
+    description='0'
+    learningRate=0
+    maxIterations=0
+    signalLength=0
+    signalSampleBuffer=0
+    processType = 'mfcc'
+    # -------------------------------------------------#
+    male_training_precision = 0
+    female_training_precision = 0
+    male_test_precision = 0
+    male_test_recall = 0
+    female_test_precision = 0
+    female_test_recall = 0
+
+    testtraining.insertNetworkToDB('mydb', 'tmpFiles/network_saved.p', description, learningRate, maxIterations, processType,
+                      signalLength, signalSampleBuffer,
+                      male_training_precision,
+                      female_training_precision,
+                      male_test_precision,
+                      male_test_recall,
+                      female_test_precision,
+                      female_test_recall)
+
+    return "Insert successfuly"
+
 @app.route('/trainNewNetwork', methods=['GET', 'POST'])
 def trainNewNetwork():
 
