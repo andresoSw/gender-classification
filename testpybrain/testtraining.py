@@ -13,6 +13,7 @@ import time
 import psutil
 from sys import getsizeof
 import sqlite3
+from SpeciePrecisionCalaulator import calculateSpeciePrecisionAndRecall
 
 from utilities import extractCommandParams, createRunFolder, writeAsJson, pickleDumpObject, pickleLoadObject
 import sys
@@ -704,7 +705,7 @@ def trainGenderClassification(learningRate, hiddenNeurons, bias, maxIterations, 
     writeAsJson(test_mfccfiles, test_dataset_file)
 
     startMemoryCounter()
-    network = buildNetwork(training_dataset.indim, hiddenNeurons, hiddenNeurons/2, hiddenNeurons/4, training_dataset.outdim, bias=bias)
+    network = buildNetwork(training_dataset.indim, hiddenNeurons, hiddenNeurons/2, hiddenNeurons/4, hiddenNeurons/8, training_dataset.outdim, bias=bias)
     printMemoryDiffFromNow("network = buildNetwork(...)")
 
     startMemoryCounter()
@@ -832,6 +833,9 @@ def trainGenderClassification(learningRate, hiddenNeurons, bias, maxIterations, 
     network_result_file = os.path.join(run_path, 'network.pickle')
 
     pickleDumpObject(network, network_result_file)
+
+    #Creates an precision and recall text file analysis by specie. (Analyzed by test_results.txt)
+    calculateSpeciePrecisionAndRecall(run_path+'/test_results.txt',run_path+'/species_precision_classification.txt',"resources/CatalogNum-Specie mapping.csv")
 
     return performenceResult
 
