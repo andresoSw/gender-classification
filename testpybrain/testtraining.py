@@ -21,6 +21,7 @@ from collections import Counter
 
 from python_speech_features import mfcc
 import scipy.io.wavfile as wav
+from custom_mfcc import centrlized_mfcc
 
 memoryLog=0
 CONVERTED_NETWORK_FILE = "tmpFiles/tmpNetworkFile"
@@ -277,7 +278,7 @@ def getVoiceSignal(data, rate, length, signalSampleBuffer,processType):
             voice_data=data[index[0]:index[0]+length]
 
             if (processType=='mfcc'):
-                mfcc_feat = mfcc(voice_data,samplerate=16000) #winlen calculation is used to extract 13 params exactly instead of a couple
+                mfcc_feat = centrlized_mfcc(voice_data,samplerate=16000) #winlen calculation is used to extract 13 params exactly instead of a couple
                 signal = [c for v in mfcc_feat for c in v] #for MFCC #takes a 2d array(13*15) and create a one-dimensional(195)
                 voice_signals.append(signal) #for MFCC
 
