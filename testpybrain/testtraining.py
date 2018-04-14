@@ -278,7 +278,7 @@ def getVoiceSignal(data, rate, length, signalSampleBuffer,processType):
             voice_data=data[index[0]:index[0]+length]
 
             if (processType=='mfcc'):
-                mfcc_feat = centrlized_mfcc(voice_data,samplerate=16000) #winlen calculation is used to extract 13 params exactly instead of a couple
+                mfcc_feat = mfcc(voice_data,samplerate=16000) #winlen calculation is used to extract 13 params exactly instead of a couple
                 signal = [c for v in mfcc_feat for c in v] #for MFCC #takes a 2d array(13*15) and create a one-dimensional(195)
                 voice_signals.append(signal) #for MFCC
 
@@ -286,7 +286,14 @@ def getVoiceSignal(data, rate, length, signalSampleBuffer,processType):
                 if (processType=='wav'):
                     voice_signals.append(voice_data)  # for PURE_WAV
                 else:
-                    print 'unknown processType.. ENTER mfcc or wav as parameter'
+                    if (processType=='custom_mfcc'):
+                        mfcc_feat = centrlized_mfcc(voice_data,
+                                                    samplerate=16000)  # winlen calculation is used to extract 13 params exactly instead of a couple
+                        signal = [c for v in mfcc_feat for c in
+                                  v]  # for MFCC #takes a 2d array(13*15) and create a one-dimensional(195)
+                        voice_signals.append(signal)  # for MFCC
+                    else:
+                        print 'unknown processType.. ENTER mfcc, custom_mfcc or wav as parameter'
 
     return voice_signals
 
