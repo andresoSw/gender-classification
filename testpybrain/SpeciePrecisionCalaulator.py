@@ -41,34 +41,46 @@ def calculateSpeciePrecisionAndRecall(RESULTS_FILE_PATH,SPECIES_CLASSIFICATION_P
                 female_corrects = value['female']['True']
                 female_incorrects = value['female']['False']
 
-                #PRECISION
-                if (female_corrects+female_incorrects==0):
-                    female_precision = 0
+                # PRECISION
+                if (female_corrects + female_incorrects == 0):
+                    female_precision = "Non "
                 else:
-                    female_precision = female_corrects / float(female_corrects+female_incorrects)
+                    female_precision = female_corrects / float(female_corrects + female_incorrects)
 
-                if (male_corrects+male_incorrects==0):
-                    male_precision = 0
+                if (male_corrects + male_incorrects == 0):
+                    male_precision = "Non "
                 else:
-                    male_precision = male_corrects / float(male_corrects+male_incorrects)
+                    male_precision = male_corrects / float(male_corrects + male_incorrects)
 
                 # RECALL
-                if (female_corrects+male_incorrects==0):
-                    female_recall = 0
+                if (female_corrects + male_incorrects == 0):
+                    female_recall = "Non "
                 else:
-                    female_recall = female_corrects / float(female_corrects+male_incorrects)
+                    female_recall = female_corrects / float(female_corrects + male_incorrects)
 
-                if (male_corrects+female_incorrects==0):
-                    male_recall = 0
+                if (male_corrects + female_incorrects == 0):
+                    male_recall = "Non "
                 else:
-                    male_recall = male_corrects / float(male_corrects+female_incorrects)
+                    male_recall = male_corrects / float(male_corrects + female_incorrects)
 
-                printedStr ='Male precision: '+str(format(male_precision, '.2f'))+' '
-                printedStr += 'Male recall: ' + str(format(male_recall, '.2f'))+' '
-                printedStr += 'Female precision: ' + str(format(female_precision, '.2f'))+' '
-                printedStr += 'Female recall : ' + str(format(female_recall, '.2f'))+', '
+                if (type(male_precision) is float):
+                    male_precision = str(format(male_precision, '.2f'))
+                printedStr = 'Male precision: ' + male_precision + ' '
+
+                if (type(male_recall) is float):
+                    male_recall = str(format(male_recall, '.2f'))
+                printedStr += 'Male recall: ' + male_recall + ' '
+
+                if (type(female_precision) is float):
+                    female_precision = str(format(female_precision, '.2f'))
+                printedStr += 'Female precision: ' + female_precision + ' '
+
+                if (type(female_recall) is float):
+                    female_recall = str(format(female_recall, '.2f'))
+                printedStr += 'Female recall: ' + female_recall + ' '
+
                 printedStr += key
 
-                output_file.write(printedStr+'\n');
+                output_file.write(printedStr + '\n');
 
         output_file.close()
