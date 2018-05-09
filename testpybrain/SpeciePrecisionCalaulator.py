@@ -84,3 +84,53 @@ def calculateSpeciePrecisionAndRecall(RESULTS_FILE_PATH,SPECIES_CLASSIFICATION_P
                 output_file.write(printedStr + '\n');
 
         output_file.close()
+
+def calculateTweetPrecision(RESULTS_FILE_PATH, TWEETS_CLASSICIATION_PATH, MAPPING_CSV):
+    catalogNumArr = []
+    speciesArr = []
+    dict = {}
+
+    with open(MAPPING_CSV, 'r') as csvfile:
+        mappingReader = csv.reader(csvfile)
+        for row in mappingReader:
+            catalogNumArr.append(row[0])
+            speciesArr.append(row[1])
+
+    with open(RESULTS_FILE_PATH) as f:
+        content = f.readlines()
+
+        for line in content:
+            if "================================" in line:
+                break
+
+            lineCatalogNum = re.search('/(.+)_', line).group(1)
+            lineSpecie = speciesArr[catalogNumArr.index(lineCatalogNum)]
+            correct = not ("INCORRECT" in line)
+
+            if (not lineSpecie in dict):
+                dict[lineSpecie] = {}
+
+            if (not lineCatalogNum in dict[lineSpecie]):
+                dict[lineSpecie][lineCatalogNum] = {'True': 0, 'False': 0}
+
+            dict[lineSpecie][lineCatalogNum][str(correct)] += 1
+
+        with open(TWEETS_CLASSICIATION_PATH, "w+") as output_file:
+            for key, specie in dict.items():
+
+                output_file.write(str(key) + ':\n')
+                for key2, CorrectMapping in specie.items():
+
+                    positive = float(CorrectMapping['True'])
+                    negative = float(CorrectMapping['False'])
+                    corrects = str(int(positive/(positive+negative))*100)
+
+                    printedStr = str(key2)+' '
+
+                    printedStr += str(corrects)+'%'
+
+                    output_file.write(printedStr + '\n')
+
+                output_file.write('\n')
+
+        output_file.close()
