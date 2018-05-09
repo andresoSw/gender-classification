@@ -25,7 +25,7 @@ def extractCommandParams(argv):
    how_to_use_message = '$ Usage: \n\tShort ARGS: testtraining.py -l <rate> ' \
                         ' -i <howmany> -f <path> -m <path> -p <processType>\n'\
                         '\tLong  ARGS: testtraining.py --learningrate <rate> ' \
-                        ' --iterations <howmany> --processType <mfcc, custom_mfcc or wav>'\
+                        ' --iterations <howmany> --processType <mfcc, custom_mfcc,mfcc_without_dct or wav>'\
                         '--femaledir <path> --maledir <path>\n\n'\
                         '\t[OPTIONAL ARGS] --hiddenneurons <howmany> --momentum <rate> --bias <true,false> --signallength <length>'\
                         '--signalclass <avg or mode> --checkclassdir <parh> --rfolder <path> '\

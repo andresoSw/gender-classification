@@ -13,7 +13,7 @@ import time
 import psutil
 from sys import getsizeof
 import sqlite3
-from SpeciePrecisionCalaulator import calculateSpeciePrecisionAndRecall
+from SpeciePrecisionCalaulator import calculateSpeciePrecisionAndRecall,calculateTweetPrecision
 
 from utilities import extractCommandParams, createRunFolder, writeAsJson, pickleDumpObject, pickleLoadObject
 import sys
@@ -21,7 +21,7 @@ from collections import Counter
 
 from python_speech_features import mfcc
 import scipy.io.wavfile as wav
-from custom_mfcc import centrlized_mfcc
+from custom_mfcc import centrlized_mfcc,mfcc_without_dct
 
 memoryLog=0
 CONVERTED_NETWORK_FILE = "tmpFiles/tmpNetworkFile"
@@ -277,7 +277,7 @@ def getVoiceSignal(data, rate, length, signalSampleBuffer,processType):
         if (index[0]%signalSampleBuffer==0):
             voice_data=data[index[0]:index[0]+length]
 
-            if (processType=='mfcc'):
+            if (processType=='mfcc' or processType=='mfcc_square_delta'):
                 mfcc_feat = mfcc(voice_data,samplerate=16000) #winlen calculation is used to extract 13 params exactly instead of a couple
                 signal = [c for v in mfcc_feat for c in v] #for MFCC #takes a 2d array(13*15) and create a one-dimensional(195)
                 voice_signals.append(signal) #for MFCC
@@ -293,7 +293,41 @@ def getVoiceSignal(data, rate, length, signalSampleBuffer,processType):
                                   v]  # for MFCC #takes a 2d array(13*15) and create a one-dimensional(195)
                         voice_signals.append(signal)  # for MFCC
                     else:
-                        print 'unknown processType.. ENTER mfcc, custom_mfcc or wav as parameter'
+                        if (processType=='mfcc_without_dct'):
+                            mfcc_feat = mfcc_without_dct(voice_data, nfilt=13,
+                                             samplerate=16000)  # winlen calculation is used to extract 13 params exactly instead of a couple
+                            signal = [c for v in mfcc_feat for c in
+                                      v]  # for MFCC #takes a 2d array(13*15) and create a one-dimensional(195)
+                            voice_signals.append(signal)  # for MFCC
+                        else:
+                            print 'unknown processType.. ENTER mfcc, custom_mfcc or wav as parameter'
+
+    if (processType=='mfcc_square_delta'):
+        voice_signals_revolution = []
+        newMfccAndDeltasVector = []
+        curDelta = []
+        curDeltaDelta = []
+        prevMfcc = np.array(voice_signals[0])
+        prevDelta = np.zeros(len(voice_signals[0]))
+
+        for mfccVector in voice_signals[1:]:
+            curDelta = np.subtract(np.array(mfccVector),prevMfcc)
+            curDeltaDelta = np.subtract(curDelta,prevDelta)
+
+            newMfccAndDeltasVector = np.array(mfccVector)
+            newMfccAndDeltasVector = np.append(newMfccAndDeltasVector,curDelta)
+            newMfccAndDeltasVector = np.append(newMfccAndDeltasVector, curDeltaDelta)
+
+            prevMfcc = mfccVector
+            prevDelta = curDelta
+
+            voice_signals_revolution.append(newMfccAndDeltasVector.tolist())
+
+        if (len(voice_signals_revolution)==0):
+            newMfccAndDeltasVector = np.append(prevMfcc,np.zeros(len(prevMfcc)*2))
+            voice_signals_revolution.append(newMfccAndDeltasVector.tolist())
+
+        return voice_signals_revolution
 
     return voice_signals
 
@@ -842,8 +876,11 @@ def trainGenderClassification(learningRate, hiddenNeurons, bias, maxIterations, 
 
     pickleDumpObject(network, network_result_file)
 
-    #Creates an precision and recall text file analysis by specie. (Analyzed by test_results.txt)
+    #Creates a precision and recall text file analysis by specie. (Analyzed by test_results.txt)
     calculateSpeciePrecisionAndRecall(run_path+'/test_results.txt',run_path+'/species_precision_classification.txt',"resources/CatalogNum-Specie mapping.csv")
+
+    # Creates a precision text file analysis by tweets. (Analyzed by test_results.txt)
+    calculateTweetPrecision(run_path+'/test_results.txt',run_path+'/tweet_precision.txt',"resources/CatalogNum-Specie mapping.csv")
 
     return performenceResult
 
