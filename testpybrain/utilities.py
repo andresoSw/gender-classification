@@ -32,7 +32,7 @@ def extractCommandParams(argv):
                         '$ Please refer to the README.md file for further explanation\n'
 
    mandatory_args = [("-l","--learningrate"),("-i","--iterations"),("-f","--femaledir"),("-m","--maledir"),("-p","--processType")]
-   optional_args = [("--hiddenneurons"),("--momentum"),("--bias"),("--signallength"),("--signalclass"),("--checkclassdir"),("--rfolder"),("--signalSampleBuffer")]
+   optional_args = [("--hiddenneurons"),("--momentum"),("--bias"),("--signallength"),("--signalclass"),("--checkclassdir"),("--rfolder"),("--signalSampleBuffer"),("--testDatasetOnEachEpoch")]
 
    # checking that all mandatory arguments were provide within the command line
    for shortArg,longArg in mandatory_args:
@@ -45,7 +45,7 @@ def extractCommandParams(argv):
       opts, args = getopt.getopt(argv,'l:i:f:m:p:',['learningrate=','iterations=',
       												'femaledir=','maledir=','hiddenneurons=','momentum=',
                                           'bias=','signallength=','signalclass=','checkclassdir=',
-      												'rfolder=','signalSampleBuffer='])
+      												'rfolder=','signalSampleBuffer=','testDatasetOnEachEpoch=','maleTestDir=','femaleTestDir='])
    except getopt.GetoptError:
       print how_to_use_message
       sys.exit(2)
@@ -86,7 +86,12 @@ def extractCommandParams(argv):
             parsed_arguments["signalclass"] = arg
       elif opt == "--signalSampleBuffer":
           parsed_arguments["signalSampleBuffer"] = int(arg)
-
+      elif opt == "--testDatasetOnEachEpoch":
+          parsed_arguments["testDatasetOnEachEpoch"] = arg
+      elif opt == "--maleTestDir":
+          parsed_arguments["maleTestDir"] = arg
+      elif opt == "--femaleTestDir":
+          parsed_arguments["femaleTestDir"] = arg
 
    return parsed_arguments
 

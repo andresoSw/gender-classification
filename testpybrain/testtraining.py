@@ -179,7 +179,6 @@ def getData(dirname, signalLength, signalSampleBuffer,processType, testProportio
     wav_num_test_samples = int(math.floor(testProportion * len(wav_files)))
     wav_num_training_samples = len(wav_files) - wav_num_test_samples
 
-
     # training signal samples are flattened
     for ntraining in xrange(0, wav_num_training_samples):
         # get a random mfcc_file and pop it from mfcc file list
@@ -656,33 +655,35 @@ def printMemoryDiffFromNow(messageToPrint):
 
 def trainGenderClassification(learningRate, hiddenNeurons, bias, maxIterations, femaleDataDir,
                               maleDataDir, momentum, signalLength, signalClass,
-                              resultsFolder, checkclassdir, signalSampleBuffer,processType):
+                              resultsFolder, checkclassdir, signalSampleBuffer,processType,testDatasetOnEachEpoch,
+                              maleTestDir,femaleTestDir):
     performenceResult = []
     """
 		Prepating Training and Test datasets
 	"""
+
     # extracting female and male samples
-    startMemoryCounter()
-    female_training_samples, female_test_samples = getData(femaleDataDir, signalLength, signalSampleBuffer,processType)
+
+    if(maleTestDir=="" or femaleTestDir==""):
+        female_training_samples, female_test_samples = getData(femaleDataDir, signalLength, signalSampleBuffer,processType, testProportion=0.2)
+        male_training_samples, male_test_samples = getData(maleDataDir, signalLength, signalSampleBuffer, processType,testProportion=0.2)
+    else:
+        female_training_samples, abcd = getData(femaleDataDir, signalLength, signalSampleBuffer,processType, testProportion=0)
+        male_training_samples, abcd = getData(maleDataDir, signalLength, signalSampleBuffer, processType, testProportion=0)
+        blabla, female_test_samples = getData(femaleTestDir,signalLength,signalSampleBuffer,processType,testProportion=1)
+        blabla, male_test_samples = getData(maleTestDir,signalLength,signalSampleBuffer,processType,testProportion=1)
+
+
     print '* female training samples: %s' % (len(female_training_samples[0]))
     print '* female test samples: %s' % (len(female_test_samples[0]))
-    printMemoryDiffFromNow("getData(femaleDataDir,...)")
 
-    startMemoryCounter()
-    male_training_samples, male_test_samples = getData(maleDataDir, signalLength, signalSampleBuffer,processType)
     print '* male training samples: %s' % (len(male_training_samples[0]))
     print '* male test samples: %s' % (len(male_test_samples[0]))
-    printMemoryDiffFromNow("getData(maleDataDir,...)")
-    print "* "
 
-    startMemoryCounter()
     training_inputs, training_targets, training_mfccfiles = combineSamples(female_training_samples,
                                                                            male_training_samples)
-    printMemoryDiffFromNow("combineSamples(female_training_samples,male_training_samples)")
 
-    startMemoryCounter()
     test_inputs, test_targets, test_mfccfiles = combineSamples(female_test_samples, male_test_samples)
-    printMemoryDiffFromNow("combineSamples(female_test_samples, male_test_samples)")
 
     test_dataset = (test_inputs, test_targets, test_mfccfiles)
 
@@ -759,6 +760,13 @@ def trainGenderClassification(learningRate, hiddenNeurons, bias, maxIterations, 
     tr_accuracy_female = 0
     tr_error = 0
     total_time = 0
+
+    if(testDatasetOnEachEpoch=='Y'):
+        allEpochsLog = os.path.join(run_path, 'all_epochs_log.txt')
+        useless_test_results_file = os.path.join(run_path, 'useless_test_results.txt')
+        with open(allEpochsLog, 'a') as outfile:
+            outfile.writelines("epoch,tr_accuray_male,tr_accuracy_female,test_accuracy\n")
+
     # training with training dataset
     startMemoryCounter()
     for epoch in xrange(0, maxIterations):
@@ -771,8 +779,14 @@ def trainGenderClassification(learningRate, hiddenNeurons, bias, maxIterations, 
         tr_error_male = 1 - tr_accuracy_male
         tr_error_female = 1 - tr_accuracy_female
 
+        if (testDatasetOnEachEpoch=='Y'):
+            test_error = testOnCustomDataset(test_dataset, network, signalClass, useless_test_results_file, [])
+            with open(allEpochsLog, 'a') as outfile:
+                outfile.writelines(str(epoch+1)+","+str(format(tr_accuracy_male, '.2f'))+","+str(format(tr_accuracy_female, '.2f'))+","+str(1-test_error)+"\n")
+
         printMemoryDiffFromNow("train iteration "+str(epoch)+ " Performance: "+str(timestampAfterTrain-timestampBeforeTrain))
         print("train dataset accuracy, male:"+str(round(tr_accuracy_male,2))+" female:"+str(round(tr_accuracy_female,2)));
+
         startMemoryCounter()
 
 
@@ -876,11 +890,11 @@ def trainGenderClassification(learningRate, hiddenNeurons, bias, maxIterations, 
 
     pickleDumpObject(network, network_result_file)
 
-    #Creates a precision and recall text file analysis by specie. (Analyzed by test_results.txt)
-    calculateSpeciePrecisionAndRecall(run_path+'/test_results.txt',run_path+'/species_precision_classification.txt',"resources/CatalogNum-Specie mapping.csv")
-
-    # Creates a precision text file analysis by tweets. (Analyzed by test_results.txt)
-    calculateTweetPrecision(run_path+'/test_results.txt',run_path+'/tweet_precision.txt',"resources/CatalogNum-Specie mapping.csv")
+    # #Creates a precision and recall text file analysis by specie. (Analyzed by test_results.txt)
+    # calculateSpeciePrecisionAndRecall(run_path+'/test_results.txt',run_path+'/species_precision_classification.txt',"resources/CatalogNum-Specie mapping.csv")
+    #
+    # # Creates a precision text file analysis by tweets. (Analyzed by test_results.txt)
+    # calculateTweetPrecision(run_path+'/test_results.txt',run_path+'/tweet_precision.txt',"resources/CatalogNum-Specie mapping.csv")
 
     return performenceResult
 
@@ -903,6 +917,7 @@ def main(args):
     DEFAULT_CHECK_CLASS_DIR = None
     DEFAULT_HIDDEN_NEURONS = None  # flag, if none the number is based on the input units
     DEFAULT_SIGNAL_SAMPLE_BUFFER = 1
+    DEFAULT_TEST_DATASET_ON_EACH_EPOCH= 'N'
 
     if "momentum" in arguments:
         momentum = arguments["momentum"]
@@ -945,11 +960,28 @@ def main(args):
     else:
         signalSampleBuffer = DEFAULT_SIGNAL_SAMPLE_BUFFER
 
+    if "testDatasetOnEachEpoch" in arguments:
+        testDatasetOnEachEpoch = arguments["testDatasetOnEachEpoch"]
+    else:
+        testDatasetOnEachEpoch = DEFAULT_TEST_DATASET_ON_EACH_EPOCH
+
+    if "maleTestDir" in arguments:
+        maleTestDir = arguments["maleTestDir"]
+    else:
+        maleTestDir = ""
+
+    if "femaleTestDir" in arguments:
+        femaleTestDir = arguments["femaleTestDir"]
+    else:
+        femaleTestDir = ""
+
     performenceResult = trainGenderClassification(learningRate=learningRate, hiddenNeurons=hiddenNeurons, bias=bias,
                               maxIterations=maxIterations, femaleDataDir=femaleDataDir,
                               maleDataDir=maleDataDir, momentum=momentum, signalLength=signalLength,
                               signalClass=signalClass,
-                              resultsFolder=resultsFolder, checkclassdir=checkclassdir,signalSampleBuffer=signalSampleBuffer,processType=processType)
+                              resultsFolder=resultsFolder, checkclassdir=checkclassdir,signalSampleBuffer=signalSampleBuffer,
+                              processType=processType,testDatasetOnEachEpoch=testDatasetOnEachEpoch,
+                              maleTestDir=maleTestDir,femaleTestDir=femaleTestDir)
 
     return performenceResult
 
