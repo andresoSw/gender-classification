@@ -5,3 +5,13 @@
 *.hi
 *.wav
 *.nn
+
+testpybrain/ReadMe\.txt
+
+testpybrain/my-classification-results/
+
+testpybrain/tmpFiles/
+
+\.idea/
+
+testpybrain/mydb
